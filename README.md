@@ -3,7 +3,7 @@
 # 设置编译器
 
 ```bash
-export /home/yx/Desktop/keystone/riscv64/bin:/home/yx/Desktop/vf-keystone/keystone/build-starfive/visionfive264/buildroot.build/host/bin
+export PATH=$PATH:/home/yx/Desktop/vf-keystone/keystone/build-starfive/visionfive264/buildroot.build/host/bin
 ```
 
 # 制作libipfs_keystone.o库
