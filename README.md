@@ -117,6 +117,8 @@ sudo cp -r lib_c_interface_keystone/include /usr/local/ipfs-keystone
 sudo cp -r lib_keystone/include /usr/local/ipfs-keystone
 ```
 
+go项目通过cgo使用
+
 ```golang
 package <package-name>
 
