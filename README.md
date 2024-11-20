@@ -115,6 +115,7 @@ ioctl error: Function not implemented
 ```bash
 sudo cp -r lib_c_interface_keystone/include /usr/local/ipfs-keystone
 sudo cp -r lib_keystone/include /usr/local/ipfs-keystone
+sudo cp lib_c_interface_keystone/libipfs_keystone.a /usr/local/ipfs-keystone/
 ```
 
 go项目通过cgo使用
