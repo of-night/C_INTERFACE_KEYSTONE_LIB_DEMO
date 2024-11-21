@@ -144,10 +144,7 @@ get_filename_wrapper(void* buffer) {
     return;
   }
 
-  uintptr_t data_section = edge_call_data_ptr();
-  memcpy((void*)data_section, ADDFILENAME, strlen(ADDFILENAME) + 1);
-  if (edge_call_setup_ret(
-          edge_call, (void*)data_section, sizeof(unsigned long))) {
+  if (edge_call_setup_ret(edge_call, (void*)ADDFILENAME, strlen(ADDFILENAME) + 1)) {
     edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
   } else {
     edge_call->return_data.call_status = CALL_STATUS_OK;
