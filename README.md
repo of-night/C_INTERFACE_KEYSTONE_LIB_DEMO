@@ -9,7 +9,7 @@ export PATH=$PATH:/home/yx/Desktop/vf-keystone/keystone/build-starfive/visionfiv
 # 制作libipfs_keystone.o库
 
 ```bash
-riscv64-buildroot-linux-gnu-g++ -o lib_c_interface_keystone/ipfs_keystone_lib.o -c lib_c_interface_keystone/src/host_native.cpp -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_c_interface_keystone/include -L/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone -lkeystone-host -lkeystone-edge -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/include/host -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/include/edge -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/include
+riscv64-buildroot-linux-gnu-g++ -o lib_c_interface_keystone/ipfs_keystone_lib.o -c lib_c_interface_keystone/src/host_native.cpp -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_c_interface_keystone/include -L/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/lib -lkeystone-host -lkeystone-edge -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/include/host -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/include/edge -I/home/yx/Desktop/vf-keystone/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/include
 mv lib_c_interface_keystone/ipfs_keystone_lib.o ./
 riscv64-buildroot-linux-gnu-ar x lib_keystone/libkeystone-host.a
 riscv64-buildroot-linux-gnu-ar x lib_keystone/libkeystone-edge.a
