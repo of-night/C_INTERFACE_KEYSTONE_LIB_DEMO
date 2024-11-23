@@ -169,6 +169,7 @@ ring_buffer_write_wrapper(void* buffer) {
 
   if (tempRB == NULL)
   {
+    std::cout << "tempRB == NULL in ring_buffer_write_wrapper. tempRB: " << tempRB << std::endl;
     return;
   }
 
@@ -234,16 +235,21 @@ int ring_buffer_write(RingBuffer *rb, const char *data, size_t length) {
 
 // 从缓冲区读取数据
 int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen) {
+  *readLen = 0;
+  int needLen;
+  while (length != *readLen) {
+    needLen = length - *readLen;
     while (ring_buffer_space_used(rb) == 0 && rb->running) {
         ;
     }
     if (!rb->running && ring_buffer_space_used(rb) == 0) {
-        *readLen = 0;
         return 0;
     }
 
     int used = ring_buffer_space_used(rb);
-    int read = (used < length) ? used : length;
+    int read = (used < needLen) ? used : needLen;
+
+    int totalRead = 0;
 
     while (read > 0) {
         int chunk = (read < used) ? read : used;
@@ -260,9 +266,11 @@ int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen) {
 
         data += chunk;
         read -= chunk;
+        totalRead += chunk;
     }
 
-    *readLen = length - read;
-    return 1;
+    *readLen += totalRead;
+  }
+  return 1;
 }
 
