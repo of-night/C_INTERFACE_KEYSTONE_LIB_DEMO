@@ -128,24 +128,3 @@ ioctl error: Function not implemented
 
 ```
 
-# 提供给go项目使用
-
-将静态库和头文件移动到指定位置
-
-```bash
-sudo cp -r lib_c_interface_keystone/include /usr/local/ipfs-keystone
-sudo cp -r lib_keystone/include /usr/local/ipfs-keystone
-sudo cp lib_c_interface_keystone/libipfs_keystone.a /usr/local/ipfs-keystone/
-```
-
-go项目通过cgo使用
-
-```golang
-package <package-name>
-
-// #cgo LDFLAGS: -L/usr/local/ipfs-keystone -lipfs_keystone -lstdc++
-// #cgo CFLAGS: -I/usr/local/ipfs-keystone/include -I/usr/local/ipfs-keystone/include/host -I/usr/local/ipfs-keystone/include/edge
-// #include "ipfs_keystone.h"
-import "C"
-
-```
