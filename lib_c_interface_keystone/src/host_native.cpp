@@ -191,11 +191,17 @@ void init_ring_buffer(RingBuffer *rb) {
 
 // 获取缓冲区可用空间大小
 int ring_buffer_space_available(RingBuffer *rb) {
-    return BUFFER_SIZE - (rb->write_pos - rb->read_pos);
+  if (rb->write_pos < rb->read_pos)
+  {
+    return rb->read_pos - rb->write_pos - 1;
+  }
+  
+  return BUFFER_SIZE - (rb->write_pos - rb->read_pos) - 1;
 }
 
 // 获取缓冲区已使用空间大小
 int ring_buffer_space_used(RingBuffer *rb) {
+  if (rb->write_pos < rb->read_pos) return BUFFER_SIZE - rb->read_pos + rb->write_pos;
     return rb->write_pos - rb->read_pos;
 }
 

@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define BUFFER_SIZE 256 * 1024 * 3 // 768 KB
+#define BUFFER_SIZE 256 * 1024 * 3 + 1 // 768 + 1KB
 #define CHUNK_SIZE 256 * 1024   // 256 KB
 
 typedef struct {
