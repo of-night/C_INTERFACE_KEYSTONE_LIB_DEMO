@@ -2,6 +2,7 @@
 #include <keystone.h>
 #include "ipfs_keystone.h"
 #include <iostream>
+#include <chrono>
 
 char* ADDFILENAME = NULL;
 RingBuffer* tempRB = NULL;
@@ -22,7 +23,6 @@ ring_buffer_write_wrapper(void* buffer);
 
 
 void ipfs_keystone(int isAES, void* fileName, void* rb) {
-  std::cout << "v0.0.1 test" << std::endl;
 
   // 需要分配内存并复制字符串，确保释放内存以避免内存泄漏。
   if (fileName != NULL) {
@@ -41,7 +41,8 @@ void ipfs_keystone(int isAES, void* fileName, void* rb) {
     tempRB = (RingBuffer*)rb;
   }
 
-  std::cout << "add file name: " << ADDFILENAME << std::endl;
+  // 获取当前时间点
+  auto start = std::chrono::steady_clock::now();
 
   Keystone::Enclave enclave;
   Keystone::Params params;
@@ -76,7 +77,9 @@ void ipfs_keystone(int isAES, void* fileName, void* rb) {
   edge_call_init_internals(
       (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
 
-  std::cout << "eapp start run" << std::endl;
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
   enclave.run();
 
   tempRB->running = 0;
