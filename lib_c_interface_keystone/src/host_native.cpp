@@ -16,10 +16,13 @@ get_filename_wrapper(void* buffer);
 int ring_buffer_write(RingBuffer *rb, const char *data, size_t length);
 void
 ring_buffer_write_wrapper(void* buffer);
+void
+ring_buffer_read_wrapper(void* buffer);
 
 #define OCALL_PRINT_STRING 1
 #define OCALL_GET_FILENAME 2
 #define OCALL_RING_BUFFER_WRITE 3
+#define OCALL_RING_BUFFER_READ 4
 
 
 void ipfs_keystone(int isAES, void* fileName, void* rb) {
@@ -73,6 +76,73 @@ void ipfs_keystone(int isAES, void* fileName, void* rb) {
   register_call(OCALL_PRINT_STRING, print_string_wrapper);
   register_call(OCALL_GET_FILENAME, get_filename_wrapper);
   register_call(OCALL_RING_BUFFER_WRITE, ring_buffer_write_wrapper);
+
+  edge_call_init_internals(
+      (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
+
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
+  enclave.run();
+
+  tempRB->running = 0;
+
+  ADDFILENAME = NULL;
+
+  std::cout << "enclave done" << std::endl;
+}
+
+void ipfs_keystone_de(int isDeAES, void* fileName, void* rb) {
+
+  // 需要分配内存并复制字符串，确保释放内存以避免内存泄漏。
+  if (fileName != NULL) {
+
+    ADDFILENAME = (char*)fileName;
+    // if (ADDFILENAME != NULL) {
+
+    //   delete[] ADDFILENAME; // 释放之前分配的内存（如果有的话）
+    // }
+    // ADDFILENAME = new char[strlen(fileName) + 1]; // 分配足够的空间
+    // memcpy(ADDFILENAME, fileName, strlen(fileName) + 1); // 复制字符串
+  }
+
+  if (rb != NULL)
+  {
+    tempRB = (RingBuffer*)rb;
+  }
+
+  // 获取当前时间点
+  auto start = std::chrono::steady_clock::now();
+
+  Keystone::Enclave enclave;
+  Keystone::Params params;
+
+  params.setFreeMemSize(256 * 1024 * 1024);
+  params.setUntrustedSize(1024 * 1024);
+
+  switch (isDeAES)
+  {
+  case AES:
+      enclave.init("deaes", "eyrie-rt", "loader.bin", params);
+      break;
+  case SM4:
+      enclave.init("desm4", "eyrie-rt", "loader.bin", params);
+      break;
+  case demo:
+      enclave.init("hello-native", "eyrie-rt", "loader.bin", params);
+      break;
+  default:
+      std::cout << "TEE do nothing" << std::endl;
+      return;
+  }
+
+  enclave.registerOcallDispatch(incoming_call_dispatch);
+
+  /* We must specifically register functions we want to export to the
+     enclave. */
+  register_call(OCALL_PRINT_STRING, print_string_wrapper);
+  register_call(OCALL_GET_FILENAME, get_filename_wrapper);
+  register_call(OCALL_RING_BUFFER_READ, ring_buffer_read_wrapper);
 
   edge_call_init_internals(
       (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
@@ -181,6 +251,87 @@ ring_buffer_write_wrapper(void* buffer) {
   }
 
   edge_call->return_data.call_status = CALL_STATUS_OK;
+
+  return;
+}
+
+void
+ring_buffer_read_wrapper(void* buffer) {
+
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (tempRB == NULL)
+  {
+    std::cout << "tempRB == NULL in ring_buffer_read_wrapper. tempRB: " << tempRB << std::endl;
+    return;
+  }
+
+  size_t usedSpace = 0;
+  size_t size = 0;
+  while (ring_buffer_space_used(tempRB) == 0 && tempRB->running)
+  {
+    ;
+  }
+
+  if (!tempRB->running && ring_buffer_space_used(tempRB) == 0) {
+    // size = 0;
+  } else {
+    usedSpace = ring_buffer_space_used(tempRB);
+    size = usedSpace < 786432 ? usedSpace : 786432;
+  }
+
+  struct edge_data data_wrapper;
+  data_wrapper.size = size;
+  edge_call_get_offset_from_ptr(
+      _shared_start + sizeof(struct edge_call) + sizeof(struct edge_data),
+      sizeof(struct edge_data), &data_wrapper.offset);
+
+  int remaining = BUFFER_SIZE - tempRB->read_pos;
+  if (size <= remaining) {
+    memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
+      tempRB->buffer + tempRB->read_pos, size);
+      tempRB->read_pos += size;
+  } else {
+    memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
+      tempRB->buffer + tempRB->read_pos, remaining);
+    memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data) + remaining),
+      tempRB->buffer, size - remaining);
+      tempRB->read_pos = size - remaining;
+  }
+
+  // ring_buffer_read(tempRB, (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)), size)
+  // memcpy(
+  //     (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
+  //     ptr, size);
+
+  memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call)), &data_wrapper,
+      sizeof(struct edge_data));
+
+  edge_call->return_data.call_ret_size = sizeof(struct edge_data);
+  if (edge_call_get_offset_from_ptr(
+      _shared_start + sizeof(struct edge_call), sizeof(struct edge_data),
+      &edge_call->return_data.call_ret_offset)) {
+        edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  } else {
+    edge_call->return_data.call_status = CALL_STATUS_OK;
+  }
+
+  // 不能直接用，会超过边界
+  // if (edge_call_setup_wrapped_ret(edge_call, (void*)(tempRB->read_pos), (usedSpace < 786432 ? usedSpace : 786432))) {
+  //   edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  // } else {
+  //   edge_call->return_data.call_status = CALL_STATUS_OK;
+  // }
 
   return;
 }

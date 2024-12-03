@@ -33,6 +33,8 @@ int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen);
 
 void ipfs_keystone(int isAES, void *fileName, void* rb);
 
+void ipfs_keystone_de(int isAES, void *fileName, void* rb);
+
 #ifdef __cplusplus
 }
 #endif
