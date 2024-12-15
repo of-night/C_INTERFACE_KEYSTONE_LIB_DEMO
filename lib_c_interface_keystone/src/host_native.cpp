@@ -7,6 +7,8 @@
 char* ADDFILENAME = NULL;
 RingBuffer* tempRB = NULL;
 
+char temp[]="(void*)(temp)";
+
 unsigned long
 print_string(char* str);
 void
@@ -152,7 +154,7 @@ void ipfs_keystone_de(int isDeAES, void* fileName, void* rb) {
   std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
   enclave.run();
 
-  tempRB->running = 0;
+  // tempRB->running = 0;
 
   ADDFILENAME = NULL;
 
@@ -280,11 +282,42 @@ ring_buffer_read_wrapper(void* buffer) {
   }
 
   if (!tempRB->running && ring_buffer_space_used(tempRB) == 0) {
+    // free(tempRB);  // 不释放内存空间，只设置为NULL，方便cgo进行最后的判断
+    tempRB = NULL;
+    if (edge_call_setup_wrapped_ret(edge_call, NULL, 0)) {
+      edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+    } else {
+      edge_call->return_data.call_status = CALL_STATUS_OK;
+    }
+    return;
     // size = 0;
   } else {
     usedSpace = ring_buffer_space_used(tempRB);
     size = usedSpace < 786432 ? usedSpace : 786432;
   }
+
+  // char* temp = (char*)malloc(size);
+  // int remaining = BUFFER_SIZE - tempRB->read_pos;
+
+  // if (size <= remaining) {
+  //   memcpy(temp, tempRB->buffer + tempRB->read_pos, size);
+  //   tempRB->read_pos += size;
+  // } else {
+  //   memcpy(temp, tempRB->buffer + tempRB->read_pos, remaining);
+  //   memcpy(temp + remaining, tempRB->buffer, size - remaining);
+  //   tempRB->read_pos = size - remaining;
+  // }
+
+  // printf("temp %s\n", temp);
+
+  // char* temp = (char*)"(void*)(temp)";
+
+  // if (edge_call_setup_wrapped_ret(edge_call, (void*)(temp), size)) {
+  // if (edge_call_setup_wrapped_ret(edge_call, (void*)temp, strlen(temp) + 1)) {
+  //   edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  // } else {
+  //   edge_call->return_data.call_status = CALL_STATUS_OK;
+  // }
 
   struct edge_data data_wrapper;
   data_wrapper.size = size;
@@ -293,25 +326,30 @@ ring_buffer_read_wrapper(void* buffer) {
       sizeof(struct edge_data), &data_wrapper.offset);
 
   int remaining = BUFFER_SIZE - tempRB->read_pos;
+  // // printf("ring data p: %s\n", tempRB->buffer + tempRB->read_pos);
+  // printf("read wrapper start......\n");
   if (size <= remaining) {
     memcpy(
       (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
-      tempRB->buffer + tempRB->read_pos, size);
+      (void*)(tempRB->buffer + tempRB->read_pos), size);
       tempRB->read_pos += size;
   } else {
     memcpy(
       (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
-      tempRB->buffer + tempRB->read_pos, remaining);
+      (void*)(tempRB->buffer + tempRB->read_pos), remaining);
     memcpy(
       (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data) + remaining),
-      tempRB->buffer, size - remaining);
+      (void*)(tempRB->buffer), size - remaining);
       tempRB->read_pos = size - remaining;
   }
+  // printf("read wrapper end......\n");
 
-  // ring_buffer_read(tempRB, (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)), size)
-  // memcpy(
-  //     (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
-  //     ptr, size);
+  // // printf("utm data p: %s", (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)));
+
+  // // ring_buffer_read(tempRB, (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)), size)
+  // // memcpy(
+  // //     (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
+  // //     ptr, size);
 
   memcpy(
       (void*)(_shared_start + sizeof(struct edge_call)), &data_wrapper,
@@ -361,6 +399,7 @@ int ring_buffer_space_used(RingBuffer *rb) {
 
 // 向缓冲区写入数据
 int ring_buffer_write(RingBuffer *rb, const char *data, size_t length) {
+  // printf("data p: %s\n", data);
     while (ring_buffer_space_available(rb) < length && rb->running) {
         ;
     }
@@ -370,6 +409,8 @@ int ring_buffer_write(RingBuffer *rb, const char *data, size_t length) {
 
     int space = ring_buffer_space_available(rb);
     int written = 0;
+
+    // printf("read ring buffer write start......\n");
 
     while (length > 0 && space > 0) {
         int chunk = (space < length) ? space : length;
@@ -389,6 +430,8 @@ int ring_buffer_write(RingBuffer *rb, const char *data, size_t length) {
         written += chunk;
         space = ring_buffer_space_available(rb);
     }
+
+    // printf("read ring buffer write end......\n");
 
     return written;
 }
@@ -411,6 +454,8 @@ int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen) {
 
     int totalRead = 0;
 
+    // printf("read ring buffer read start......\n");
+
     while (read > 0) {
         int chunk = (read < used) ? read : used;
         int remaining = BUFFER_SIZE - rb->read_pos;
@@ -429,8 +474,15 @@ int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen) {
         totalRead += chunk;
     }
 
+    // printf("read ring buffer read start......\n");
+
     *readLen += totalRead;
   }
   return 1;
+}
+
+// 设置ring_buffer的运行状态为停止
+void ring_buffer_stop(RingBuffer *rb) {
+  rb->running = 0;
 }
 

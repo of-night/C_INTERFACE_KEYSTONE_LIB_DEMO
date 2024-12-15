@@ -9,7 +9,8 @@
 extern "C" {
 #endif
 
-#define BUFFER_SIZE 256 * 1024 * 3 + 1 // 768 + 1KB
+// #define BUFFER_SIZE 256 * 1024 * 15 + 1  // 768KB + 1 KB + 3MB
+#define BUFFER_SIZE 256 * 1024 * 3 + 1  // 768KB + 1 KB
 #define CHUNK_SIZE 256 * 1024   // 256 KB
 
 typedef struct {
@@ -31,9 +32,15 @@ int ring_buffer_space_used(RingBuffer *rb);
 // 从缓冲区读取数据
 int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen);
 
+// 向缓冲区写入数据
+int ring_buffer_write(RingBuffer *rb, const char *data, size_t length);
+
 void ipfs_keystone(int isAES, void *fileName, void* rb);
 
 void ipfs_keystone_de(int isAES, void *fileName, void* rb);
+
+// 设置ring_buffer的运行状态为停止
+void ring_buffer_stop(RingBuffer *rb);
 
 #ifdef __cplusplus
 }
