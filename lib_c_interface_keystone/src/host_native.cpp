@@ -7,8 +7,6 @@
 char* ADDFILENAME = NULL;
 RingBuffer* tempRB = NULL;
 
-char temp[]="(void*)(temp)";
-
 unsigned long
 print_string(char* str);
 void
@@ -294,6 +292,9 @@ ring_buffer_read_wrapper(void* buffer) {
   } else {
     usedSpace = ring_buffer_space_used(tempRB);
     size = usedSpace < 786432 ? usedSpace : 786432;
+    // std::cout << "size :" << size << std::endl;
+    // size = (size + 0xf) & ~0xf;
+    // std::cout << "size 1 :" << size << std::endl;
   }
 
   // char* temp = (char*)malloc(size);
@@ -485,4 +486,17 @@ int ring_buffer_read(RingBuffer *rb, char *data, int length, int *readLen) {
 void ring_buffer_stop(RingBuffer *rb) {
   rb->running = 0;
 }
+
+// 判断释放ring_buffer释放的时机
+void ring_buffer_already_got() {
+  while (tempRB != NULL)
+  {
+    ;
+  }
+
+  // 说明tempRB == NULL
+  return;
+  
+}
+
 

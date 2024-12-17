@@ -42,6 +42,9 @@ void ipfs_keystone_de(int isAES, void *fileName, void* rb);
 // 设置ring_buffer的运行状态为停止
 void ring_buffer_stop(RingBuffer *rb);
 
+// 判断释放ring_buffer释放的时机
+void ring_buffer_already_got();
+
 #ifdef __cplusplus
 }
 #endif
