@@ -51,7 +51,7 @@ void ipfs_keystone(int isAES, void* fileName, void* rb) {
   Keystone::Params params;
 
   params.setFreeMemSize(256 * 1024 * 1024);
-  params.setUntrustedSize(1024 * 1024);
+  params.setUntrustedSize(2 * 1024 * 1024);
 
   switch (isAES)
   {
@@ -89,7 +89,7 @@ void ipfs_keystone(int isAES, void* fileName, void* rb) {
 
   ADDFILENAME = NULL;
 
-  std::cout << "enclave done" << std::endl;
+  std::cout << "enclave done!" << std::endl;
 }
 
 void ipfs_keystone_de(int isDeAES, void* fileName, void* rb) {
@@ -498,5 +498,443 @@ void ring_buffer_already_got() {
   return;
   
 }
+
+
+// ==================================================================================
+//									MultiTheaded Keystone Aes encrypt
+// ==================================================================================
+
+// 初始化半部分缓冲区
+void init_half_part_buffer(HalfPartBuffer *pb, int buffersize) {
+
+    pb->read_pos = 0;
+    pb->write_pos = 0;
+    pb->buffer = (char*)malloc(buffersize);
+    if (pb->buffer == NULL)
+    {
+        printf("malloc hpb buffer error!\n");
+        return;
+    }
+    pb->MaxSpace = buffersize;
+    
+    pb->running = 1;
+}
+
+// 初始化多线程缓冲区
+void init_multi_threaded_ring_buffer(MultiThreadedBuffer *mtb, int fileSize, int sizeppb) {
+  // 16字节对齐，满足加密数据存储空间的需求
+  // CHUNK_SIZE = 2 ^ 18 = 256 * 1024
+  // 0x3 = 0b0011, 0xf = 0b1111
+  // fileSize = (fileSize + 0xf) &~0xf;
+  // int AfileSize = (fileSize &~0x3ffff) >> 1;
+  // 初始化前半部分缓冲区
+  init_half_part_buffer(&mtb->ppb, sizeppb);
+  // 初始化后半部分缓冲区
+  init_half_part_buffer(&mtb->hpb, fileSize - sizeppb);
+
+}
+
+// 释放半部分缓冲区
+void destory_half_part_buffer(HalfPartBuffer *pb) {
+    if (pb->buffer != NULL) {
+      pb->buffer = NULL;
+      free(pb->buffer); 
+    }
+}
+
+// 释放多线程缓冲区
+void destory_multi_threaded_ring_buffer(MultiThreadedBuffer *mtb) {
+    if (mtb != NULL)
+    {
+        destory_half_part_buffer(&mtb->ppb);
+        destory_half_part_buffer(&mtb->hpb);
+        free(mtb);
+    }
+}
+
+MultiFile* MULTIADDFILENAMEPPB = NULL;
+MultiFile* MULTIADDFILENAMEHPB = NULL;
+HalfPartBuffer* temPPB = NULL;
+HalfPartBuffer* temHPB = NULL;
+
+#define OCALL_PRINT_STRING          1
+#define OCALL_PPB_GET_FILENAMESIZE  5
+#define OCALL_HPB_GET_FILENAMESIZE  6
+#define OCALL_PPB_BUFFER_WRITE      7
+#define OCALL_PPB_BUFFER_READ       8
+#define OCALL_HPB_BUFFER_WRITE      9
+#define OCALL_HPB_BUFFER_READ       10
+
+void get_ppb_filenamesize_wrapper(void* buffer);
+void ppb_buffer_write_wrapper(void* buffer);
+void get_hpb_filenamesize_wrapper(void* buffer);
+void hpb_buffer_write_wrapper(void* buffer);
+
+int pb_buffer_write(HalfPartBuffer *pb, const char *data, size_t length);
+
+
+void delete_MULTIADDFILENAM(MultiFile* f) {
+  if (f == NULL)
+  {
+    printf("Delete MultiFile is NULL, delete error\n");
+    return;
+  }
+  
+  free(f);
+  f = NULL;
+}
+
+void init_MULTIADDFILENAM(MultiFile* f, char* fileName, int offset, int maxspace) {
+  size_t len = strlen(fileName) + 1;
+  if (len > 20)
+  {
+    printf("fileName is too long \n");
+    delete_MULTIADDFILENAM(f);
+    return;
+  }
+  
+  memcpy(f->fileName, fileName, strlen(fileName));
+  // f->fileName = fileName;
+  f->offset = offset;
+  f->maxspace = maxspace;
+}
+
+void multi_ipfs_keystone_ppb_buffer(int isAES, void* fileName, void* pb, int offset, int maxspace) {
+  if (fileName == NULL) { 
+    printf("multi_ipfs_keystone_ppb_buffer fileName is NULL\nERROR CLOSE......\n");
+    return;
+  }
+
+  MULTIADDFILENAMEPPB = (MultiFile*)malloc(sizeof(MultiFile));
+  if (MULTIADDFILENAMEPPB == NULL) {
+    printf("multi_ipfs_keystone_ppb_filename malloc MULTIADDFILENAMEPPB memory error\nERROR CLOSE...\n");
+    return;
+  }
+
+  init_MULTIADDFILENAM(MULTIADDFILENAMEPPB, (char*)fileName, offset, maxspace);
+
+  if (MULTIADDFILENAMEPPB == NULL) {
+    printf("multi_ipfs_keystone_ppb_filename init error\nERROR CLOSE...\n");
+    return;
+  }
+
+  if (pb == NULL)
+  {
+    printf("multi_ipfs_keystone_ppb_buffer pb is NULL\nERROR CLOSE...\n"); 
+    delete_MULTIADDFILENAM(MULTIADDFILENAMEPPB);
+  }
+
+  temPPB = (HalfPartBuffer*)pb;
+
+  // 获取当前时间点
+  auto start = std::chrono::steady_clock::now();
+
+  Keystone::Enclave enclave;
+  Keystone::Params params;
+
+  params.setFreeMemSize(256 * 1024 * 1024);
+  params.setUntrustedSize(2 * 1024 * 1024);
+
+  switch (isAES)
+  {
+  case AES:
+      enclave.init("multiaes_1", "eyrie-rt", "loader.bin", params);
+      break;
+  case SM4:
+      enclave.init("multism4_1", "eyrie-rt", "loader.bin", params);
+      break;
+  case demo:
+      enclave.init("hello-native", "eyrie-rt", "loader.bin", params);
+      break;
+  default:
+      std::cout << "multiTEE do nothing" << std::endl;
+      return;
+  }
+
+  enclave.registerOcallDispatch(incoming_call_dispatch);
+
+  /* We must specifically register functions we want to export to the
+     enclave. */
+  register_call(OCALL_PRINT_STRING, print_string_wrapper);
+  register_call(OCALL_PPB_GET_FILENAMESIZE, get_ppb_filenamesize_wrapper);
+  register_call(OCALL_PPB_BUFFER_WRITE, ppb_buffer_write_wrapper);
+
+  edge_call_init_internals(
+      (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
+
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
+
+  enclave.run();
+
+  temPPB->running = 0;
+
+  delete_MULTIADDFILENAM(MULTIADDFILENAMEPPB);
+
+  std::cout << "PPB enclave done" << std::endl;
+}
+
+void multi_ipfs_keystone_ppb_buffer_wrapper(int isAES, void* fileName, void* mtb, int offset, int maxspace) {
+  multi_ipfs_keystone_ppb_buffer(isAES, fileName, (void*)&(((MultiThreadedBuffer*)mtb)->ppb), offset, maxspace);
+}
+
+void multi_ipfs_keystone_hpb_buffer(int isAES, void* fileName, void* pb, int offset, int maxspace) {
+  if (fileName == NULL) { 
+    printf("multi_ipfs_keystone_hpb_buffer fileName is NULL\nERROR CLOSE......\n");
+    return;
+  }
+
+  MULTIADDFILENAMEHPB = (MultiFile*)malloc(sizeof(MultiFile));
+  if (MULTIADDFILENAMEHPB == NULL) {
+    printf("multi_ipfs_keystone_hpb_filename malloc MULTIADDFILENAMEHPB memory error\nERROR CLOSE...\n");
+    return;
+  }
+
+  init_MULTIADDFILENAM(MULTIADDFILENAMEHPB, (char*)fileName, offset, maxspace);
+  
+  if (MULTIADDFILENAMEHPB == NULL)
+  {
+    printf("multi_ipfs_keystone_hpb_filename init error\nERROR CLOSE...\n");
+    return;
+  }
+  
+  if (pb == NULL)
+  {
+    printf("multi_ipfs_keystone_hpb_buffer pb is NULL\nERROR CLOSE...\n");
+    delete_MULTIADDFILENAM(MULTIADDFILENAMEHPB);
+    return;
+  }
+
+  temHPB = (HalfPartBuffer*)pb;
+
+  // 获取当前时间点
+  auto start = std::chrono::steady_clock::now();
+
+  Keystone::Enclave enclave;
+  Keystone::Params params;
+
+  params.setFreeMemSize(256 * 1024 * 1024);
+  params.setUntrustedSize(2 * 1024 * 1024);
+
+  switch (isAES)
+  {
+  case AES:
+      enclave.init("multiaes_2", "eyrie-rt", "loader.bin", params);
+      break;
+  case SM4:
+      enclave.init("multism4_2", "eyrie-rt", "loader.bin", params);
+      break;
+  case demo:
+      enclave.init("hello-native", "eyrie-rt", "loader.bin", params);
+      break;
+  default:
+      std::cout << "multiTEE do nothing" << std::endl;
+      return;
+  }
+
+  enclave.registerOcallDispatch(incoming_call_dispatch);
+
+  /* We must specifically register functions we want to export to the
+     enclave. */
+  register_call(OCALL_PRINT_STRING, print_string_wrapper);
+  register_call(OCALL_HPB_GET_FILENAMESIZE, get_hpb_filenamesize_wrapper);
+  register_call(OCALL_HPB_BUFFER_WRITE, hpb_buffer_write_wrapper);
+
+  edge_call_init_internals(
+      (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
+
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
+
+  enclave.run();
+
+  temHPB->running = 0;
+
+  delete_MULTIADDFILENAM(MULTIADDFILENAMEHPB);
+
+  std::cout << "PPB enclave done" << std::endl;
+}
+
+void multi_ipfs_keystone_hpb_buffer_wrapper(int isAES, void* fileName, void* mtb, int offset, int maxspace) {
+  multi_ipfs_keystone_hpb_buffer(isAES, fileName, (void*)&(((MultiThreadedBuffer*)mtb)->hpb), offset, maxspace);
+}
+
+int alignedFileSize(int fileSize) {
+  return ((fileSize + 0xf) &~0xf);
+}
+
+int aFileSize(int fileSize) {
+  // return ((fileSize & ~0x3ffff) >> 1);
+  return (fileSize >> 1) & ~0x3ffff;
+  // return ((fileSize & ~0x3ffff) >> 1) & ~0x3ffff;
+}
+
+void get_ppb_filenamesize_wrapper(void* buffer) {
+
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (MULTIADDFILENAMEPPB == NULL) {
+    std::cout << "MULTIADDFILENAMEPPB == NULL in get_ppb_filenamesize_wrapper. MULTIADDFILENAMEPPB: " << MULTIADDFILENAMEPPB << std::endl;
+    return;
+  }
+
+  if (edge_call_setup_wrapped_ret(edge_call, (void*)MULTIADDFILENAMEPPB, sizeof(MULTIADDFILENAMEPPB))) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  } else {
+    edge_call->return_data.call_status = CALL_STATUS_OK;
+  }
+  
+  return;
+}
+
+void get_hpb_filenamesize_wrapper(void* buffer) {
+
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (MULTIADDFILENAMEHPB == NULL) {
+    std::cout << "MULTIADDFILENAMEHPB == NULL in get_hpb_filenamesize_wrapper. MULTIADDFILENAMEHPB: " << MULTIADDFILENAMEHPB << std::endl;
+    return;
+  }
+
+  if (edge_call_setup_wrapped_ret(edge_call, (void*)MULTIADDFILENAMEHPB, sizeof(MULTIADDFILENAMEHPB))) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  } else {
+    edge_call->return_data.call_status = CALL_STATUS_OK;
+  }
+  
+  return;
+}
+
+int pb_buffer_write(HalfPartBuffer *pb, const char *data, size_t length) {
+  if (pb->MaxSpace - pb->write_pos < length)
+  {
+    printf("write buffer error, pb space is not enough\n");
+    return -1;
+  }
+  
+  memcpy(&pb->buffer[pb->write_pos], data, length);
+  pb->write_pos += length;
+
+  return length;
+  
+}
+
+void ppb_buffer_write_wrapper(void* buffer) {
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (temPPB == NULL)
+  {
+    std::cout << "temPPB == NULL in ppb_buffer_write_wrapper. temPPB: " << temPPB << std::endl;
+    return;
+  }
+
+  if (arg_len >= 0) {
+    if (pb_buffer_write(temPPB, (char *)call_args, arg_len) >= 0) {
+      edge_call->return_data.call_status = CALL_STATUS_OK;
+      return;
+    }
+  }
+
+  edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+
+  return;
+}
+
+void hpb_buffer_write_wrapper(void* buffer) {
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (temHPB == NULL)
+  {
+    std::cout << "temHPB == NULL in hpb_buffer_write_wrapper. temHPB: " << temHPB << std::endl;
+    return;
+  }
+
+  if (arg_len >= 0) {
+    if (pb_buffer_write(temHPB, (char *)call_args, arg_len) >= 0) {
+      edge_call->return_data.call_status = CALL_STATUS_OK;
+      return;
+    }
+  }
+
+  edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+
+  return;
+}
+
+// ipfs从buffer中读取数据
+int which_pb_buffer_read(MultiThreadedBuffer *mtb, char *data, int length, int *readLen) {
+  // 前半部分缓冲区数据获取完
+  if (mtb->ppb.read_pos == mtb->ppb.MaxSpace) {
+    // 当hpb buffer中数据足够length 或者 hpb buffer不在再运行、代表数据已经全部放入buffer中了
+    // buffer[read_pos] -- buffer[read_pos + length] 的数据
+    while (mtb->hpb.read_pos + length > mtb->hpb.write_pos && mtb->hpb.running)
+    {
+      ;
+    }
+
+    if (!mtb->hpb.running && (mtb->hpb.read_pos == mtb->hpb.MaxSpace)) {
+      return 0;
+    }
+
+    int used = mtb->hpb.write_pos - mtb->hpb.read_pos;
+    int readsize = used < length ? used : length;
+    
+    memcpy(data, &mtb->hpb.buffer[mtb->hpb.read_pos], readsize);
+    mtb->hpb.read_pos += readsize;
+    *readLen = readsize;
+
+    return 1;
+  }
+
+  // 获取前半部分数据
+  while (mtb->ppb.read_pos + length > mtb->ppb.write_pos && mtb->ppb.running) {
+    ;
+  }
+  
+  // if (!mtb->ppb.running && (mtb->ppb.read_pos == mtb->ppb.MaxSpace)) {
+  //     return 0;
+  // }
+
+  int used = mtb->ppb.write_pos - mtb->ppb.read_pos;
+  
+  if (used < length) {
+    printf("ppb buffer data ERROR, remaining data size is not chunk size\n");
+    return 0;
+  }
+
+  memcpy(data, &mtb->ppb.buffer[mtb->ppb.read_pos], length);
+  mtb->ppb.read_pos += length;
+  *readLen = length;
+
+  return 1;
+
+}
+
 
 

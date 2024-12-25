@@ -10,8 +10,8 @@ extern "C" {
 #endif
 
 // #define BUFFER_SIZE 256 * 1024 * 15 + 1  // 768KB + 1 KB + 3MB
-#define BUFFER_SIZE 256 * 1024 * 3 + 1  // 768KB + 1 KB
-#define CHUNK_SIZE 256 * 1024   // 256 KB
+#define BUFFER_SIZE (256 * 1024 * 3 + 1)  // 768KB + 1 KB
+#define CHUNK_SIZE (256 * 1024)   // 256 KB
 
 typedef struct {
     char buffer[BUFFER_SIZE];       // 缓冲区存储数据
@@ -45,9 +45,68 @@ void ring_buffer_stop(RingBuffer *rb);
 // 判断释放ring_buffer释放的时机
 void ring_buffer_already_got();
 
+
+// ==================================================================================
+//							MultiTheaded Keystone Aes encrypt
+// ==================================================================================
+
+// 半部分缓冲区
+typedef struct {
+    volatile int read_pos;          // 当前读位置
+    volatile int write_pos;         // 当前写位置
+    volatile int running;           // 标记是否正在运行
+    volatile int MaxSpace;          // 标记是否正在运行
+    char *buffer;
+} HalfPartBuffer;
+
+typedef struct {
+    HalfPartBuffer ppb;             // 前半部分
+    HalfPartBuffer hpb;             // 后半部分
+} MultiThreadedBuffer;
+
+typedef struct {
+    char fileName[20];
+    int offset;
+    int maxspace;
+} MultiFile;
+
+// 初始化半部分缓冲区
+void init_half_part_buffer(HalfPartBuffer *pb, int buffersize);
+
+// 释放半部分缓冲区
+void destory_half_part_buffer(HalfPartBuffer *pb);
+
+// 初始化多线程缓冲区
+void init_multi_threaded_ring_buffer(MultiThreadedBuffer *mtb, int fileSize, int sizeppb);
+
+// 释放多线程缓冲区
+void destory_multi_threaded_ring_buffer(MultiThreadedBuffer *mtb);
+
+// 使用前半部分缓冲区KEYSTONE
+void multi_ipfs_keystone_ppb_buffer(int isAES, void* fileName, void* pb, int offset, int maxspace);
+
+// 使用后半部分缓冲区KEYSTONE
+void multi_ipfs_keystone_hpb_buffer(int isAES, void* fileName, void* pb, int offset, int maxspace);
+
+// 封装使用前半部分缓冲区KEYSTONE
+void multi_ipfs_keystone_ppb_buffer_wrapper(int isAES, void* fileName, void* mtb, int offset, int maxspace);
+
+// 封装使用后半部分缓冲区KEYSTONE
+void multi_ipfs_keystone_hpb_buffer_wrapper(int isAES, void* fileName, void* mtb, int offset, int maxspace);
+
+int alignedFileSize(int fileSize);
+
+int aFileSize(int fileSize);
+
+// ipfs从buffer中读取数据
+int which_pb_buffer_read(MultiThreadedBuffer *mtb, char *data, int length, int *readLen);
+
+
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif //IPFS_KEYSTONE_H
+
 
