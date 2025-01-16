@@ -3,6 +3,10 @@
 #include "ipfs_keystone.h"
 #include <iostream>
 #include <chrono>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <unistd.h>
+
 
 char* ADDFILENAME = NULL;
 RingBuffer* tempRB = NULL;
@@ -558,8 +562,10 @@ HalfPartBuffer* temPPB = NULL;
 HalfPartBuffer* temHPB = NULL;
 
 #define OCALL_PRINT_STRING          1
+// #define OCALL_PB_GET_FILENAMESIZE   5
 #define OCALL_PPB_GET_FILENAMESIZE  5
 #define OCALL_HPB_GET_FILENAMESIZE  6
+// #define OCALL_PB_BUFFER_WRITE       7
 #define OCALL_PPB_BUFFER_WRITE      7
 #define OCALL_PPB_BUFFER_READ       8
 #define OCALL_HPB_BUFFER_WRITE      9
@@ -605,6 +611,8 @@ void multi_ipfs_keystone_ppb_buffer(int isAES, void* fileName, void* pb, int off
     return;
   }
 
+  printf("ppb filename: %s\n", (char*)fileName);
+
   MULTIADDFILENAMEPPB = (MultiFile*)malloc(sizeof(MultiFile));
   if (MULTIADDFILENAMEPPB == NULL) {
     printf("multi_ipfs_keystone_ppb_filename malloc MULTIADDFILENAMEPPB memory error\nERROR CLOSE...\n");
@@ -612,6 +620,8 @@ void multi_ipfs_keystone_ppb_buffer(int isAES, void* fileName, void* pb, int off
   }
 
   init_MULTIADDFILENAM(MULTIADDFILENAMEPPB, (char*)fileName, offset, maxspace);
+
+  printf("MULTIADDFILENAMEPPB filename: %s\n", MULTIADDFILENAMEPPB->fileName);
 
   if (MULTIADDFILENAMEPPB == NULL) {
     printf("multi_ipfs_keystone_ppb_filename init error\nERROR CLOSE...\n");
@@ -685,6 +695,8 @@ void multi_ipfs_keystone_hpb_buffer(int isAES, void* fileName, void* pb, int off
     return;
   }
 
+  printf("hpb filename: %s\n", (char*)fileName);
+
   MULTIADDFILENAMEHPB = (MultiFile*)malloc(sizeof(MultiFile));
   if (MULTIADDFILENAMEHPB == NULL) {
     printf("multi_ipfs_keystone_hpb_filename malloc MULTIADDFILENAMEHPB memory error\nERROR CLOSE...\n");
@@ -692,6 +704,8 @@ void multi_ipfs_keystone_hpb_buffer(int isAES, void* fileName, void* pb, int off
   }
 
   init_MULTIADDFILENAM(MULTIADDFILENAMEHPB, (char*)fileName, offset, maxspace);
+
+  printf("MULTIADDFILENAMEHPB filename: %s\n", MULTIADDFILENAMEHPB->fileName);
   
   if (MULTIADDFILENAMEHPB == NULL)
   {
@@ -754,7 +768,7 @@ void multi_ipfs_keystone_hpb_buffer(int isAES, void* fileName, void* pb, int off
 
   delete_MULTIADDFILENAM(MULTIADDFILENAMEHPB);
 
-  std::cout << "PPB enclave done" << std::endl;
+  std::cout << "HPB enclave done" << std::endl;
 }
 
 void multi_ipfs_keystone_hpb_buffer_wrapper(int isAES, void* fileName, void* mtb, int offset, int maxspace) {
@@ -786,14 +800,16 @@ void get_ppb_filenamesize_wrapper(void* buffer) {
     return;
   }
 
-  if (edge_call_setup_wrapped_ret(edge_call, (void*)MULTIADDFILENAMEPPB, sizeof(MULTIADDFILENAMEPPB))) {
+  printf("MULTIADDFILENAMEPPB filename: %s file offset: %d file maxspace: %d\n", MULTIADDFILENAMEPPB->fileName, MULTIADDFILENAMEPPB->offset, MULTIADDFILENAMEPPB->maxspace);
+
+  if (edge_call_setup_wrapped_ret(edge_call, (void*)MULTIADDFILENAMEPPB, sizeof(MultiFile))) {
     edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
   } else {
     edge_call->return_data.call_status = CALL_STATUS_OK;
   }
   
   return;
-}
+} 
 
 void get_hpb_filenamesize_wrapper(void* buffer) {
 
@@ -810,7 +826,9 @@ void get_hpb_filenamesize_wrapper(void* buffer) {
     return;
   }
 
-  if (edge_call_setup_wrapped_ret(edge_call, (void*)MULTIADDFILENAMEHPB, sizeof(MULTIADDFILENAMEHPB))) {
+  printf("MULTIADDFILENAMEHPB filename: %s file offset: %d file maxspace: %d\n", MULTIADDFILENAMEHPB->fileName, MULTIADDFILENAMEHPB->offset, MULTIADDFILENAMEHPB->maxspace);
+
+  if (edge_call_setup_wrapped_ret(edge_call, (void*)MULTIADDFILENAMEHPB, sizeof(MultiFile))) {
     edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
   } else {
     edge_call->return_data.call_status = CALL_STATUS_OK;
@@ -849,10 +867,12 @@ void ppb_buffer_write_wrapper(void* buffer) {
   }
 
   if (arg_len >= 0) {
+    printf("phpb start write buffer start\n");
     if (pb_buffer_write(temPPB, (char *)call_args, arg_len) >= 0) {
       edge_call->return_data.call_status = CALL_STATUS_OK;
       return;
     }
+    printf("ppb start write buffer end\n");
   }
 
   edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
@@ -876,10 +896,12 @@ void hpb_buffer_write_wrapper(void* buffer) {
   }
 
   if (arg_len >= 0) {
+    printf("hpb start write buffer start\n");
     if (pb_buffer_write(temHPB, (char *)call_args, arg_len) >= 0) {
       edge_call->return_data.call_status = CALL_STATUS_OK;
       return;
     }
+    printf("hpb start write buffer end\n");
   }
 
   edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
@@ -925,6 +947,7 @@ int which_pb_buffer_read(MultiThreadedBuffer *mtb, char *data, int length, int *
   
   if (used < length) {
     printf("ppb buffer data ERROR, remaining data size is not chunk size\n");
+    printf("write_pos: %d \t read_pos: %d \t used: %d \n",mtb->ppb.write_pos ,mtb->ppb.read_pos, used);
     return 0;
   }
 
@@ -934,6 +957,215 @@ int which_pb_buffer_read(MultiThreadedBuffer *mtb, char *data, int length, int *
 
   return 1;
 
+}
+
+
+
+// ==================================================================================
+//				Multi-process Keystone Encrypt
+// ==================================================================================
+
+
+int MultiProcessRead(void* shmaddr, int shmsize, void* data, int len, int* readLen) {
+  MultiProcessSHMBuffer* tempmpshmb = (MultiProcessSHMBuffer*)shmaddr;
+
+  // int src_offset = sizeof(MultiProcessSHMBuffer) + tempmpshmb->offset;
+  int src_offset = sizeof(MultiProcessSHMBuffer);
+  
+  // 说明前半部分缓冲区已经正常读到预定的末尾位置，开始获取后半部分的数据
+  if (tempmpshmb->qpb.read_pos == tempmpshmb->qpb.MaxSpace) {
+    while (tempmpshmb->hpb.read_pos + len > tempmpshmb->hpb.write_pos && tempmpshmb->hpb.running)
+    {
+      ;
+    }
+
+    int hpb_src_offset = src_offset + tempmpshmb->qpb.MaxSpace;
+
+    if (!tempmpshmb->hpb.running && (tempmpshmb->hpb.read_pos == tempmpshmb->hpb.write_pos)) {
+      printf("write - max = %d\n", tempmpshmb->hpb.write_pos - tempmpshmb->hpb.MaxSpace);
+      printf("read - max = %d\n", tempmpshmb->hpb.read_pos - tempmpshmb->hpb.MaxSpace);
+      return 0;
+    }
+
+    int used = tempmpshmb->hpb.write_pos - tempmpshmb->hpb.read_pos;
+    int read_size = len < used ? len : used;
+
+    memcpy(data, (void*)((char*)shmaddr + hpb_src_offset + tempmpshmb->hpb.read_pos), read_size);
+    tempmpshmb->hpb.read_pos += read_size;
+    *readLen = read_size;
+    return 1;
+    
+  }
+
+  while (tempmpshmb->qpb.read_pos + len > tempmpshmb->qpb.write_pos && tempmpshmb->qpb.running)
+  {
+    ;
+  }
+
+  int used = tempmpshmb->qpb.write_pos - tempmpshmb->qpb.read_pos;
+  if (used < len) {
+    printf("qpb buffer data ERROR, remaining data size is not chunk size\n");
+    return 0;
+  }
+  
+  memcpy(data, (void*)((char*)shmaddr + src_offset + tempmpshmb->qpb.read_pos), len);
+  tempmpshmb->qpb.read_pos += len;
+  *readLen = len;
+  return 1;
+  
+}
+
+// 创建共享内存
+void *creat_shareMemory(int shmsize) {
+  int id = shmget(shmKey, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// 为当前进程连接共享内存
+void *attach_shareMemory(int shmsize) {
+  int id = shmget(shmKey, shmsize, 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// 断开连接共享内存
+void detach_shareMemory(void* shmaddr) {
+  shmdt(shmaddr);
+}
+
+// 删除共享内存段
+void removeShm(int shmsize) {
+
+  int id = shmget(shmKey, shmsize, 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  if (shmctl(id, IPC_RMID, NULL) == -1) {
+    perror("shmctl");
+    exit(-1);
+  }
+}
+
+void waitKeystoneReady(void *shmaddr) {
+  MultiProcessSHMBuffer* tempmpshmb = (MultiProcessSHMBuffer*)shmaddr;
+
+  while (tempmpshmb->offset != sizeof(MultiProcessSHMBuffer))
+  {
+    ;
+  }
+  
+}
+
+
+
+
+// ==================================================================================
+//				Multi-process Cross-read Keystone Encrypt
+// ==================================================================================
+
+long long long_alignedFileSize(long long fileSize) {
+  return ((fileSize + 0xf) &~0xf);
+}
+
+long long long_alignedFileSize_blocksnums(long long fileSize) {
+  return ((fileSize + 0x3ffff)>> 18);
+}
+
+// 创建共享内存
+void *long_create_shareMemory(long long shmsize) {
+  int id = shmget(shmKey, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// 启动keystone之前先初始化内存空间
+void crossInitSHM(void *shmaddr, long long blocksNums) {
+  MultiProcessCrossSHMBuffer *tMCSM = (MultiProcessCrossSHMBuffer*)shmaddr;
+
+  tMCSM->offset = blocksNums * (sizeof(unsigned int));
+  tMCSM->ready1 = 0;
+  tMCSM->ready2 = 0;
+  tMCSM->read_position = 0;
+
+  unsigned int* tflag = (unsigned int*)((char*)shmaddr + sizeof(MultiProcessCrossSHMBuffer));
+
+  for (int i = 0; i < blocksNums; ++i) {
+    tflag[i] = 0;
+  }
+  
+}
+
+// 等待keystone already
+void crosswaitKeystoneReady(void *shmaddr) {
+  MultiProcessCrossSHMBuffer *tMCSM = (MultiProcessCrossSHMBuffer*)shmaddr;
+
+  while (tMCSM->ready1 != 1 || tMCSM->ready2 != 1)
+  {
+    ;
+  }
+  
+}
+
+int MultiProcessCrossRead(void* shmaddr, int shmsize, void* data, int len, int* readLen) {
+  MultiProcessCrossSHMBuffer* tempmpshmb = (MultiProcessCrossSHMBuffer*)shmaddr;
+
+  // int src_offset = sizeof(MultiProcessSHMBuffer) + tempmpshmb->offset;
+  unsigned int* src_offset_flag = (unsigned int*)((char*)shmaddr + sizeof(MultiProcessCrossSHMBuffer));
+  char* src_offset_data = (char*)shmaddr + sizeof(MultiProcessCrossSHMBuffer) + tempmpshmb->offset;
+  
+  while (src_offset_flag[tempmpshmb->read_position] == 0 && (tempmpshmb->ready1 || tempmpshmb->ready2 ))
+  {
+    ;
+  }
+
+  if (!(tempmpshmb->ready1 || tempmpshmb->ready2 ) && tempmpshmb->offset == tempmpshmb->read_position) {
+    return 0;
+  }
+
+  if (src_offset_flag[tempmpshmb->read_position] == 0) {
+    printf("Keystone write data error\n");
+    return 0;
+  }
+
+  *readLen = len > src_offset_flag[tempmpshmb->read_position] ? src_offset_flag[tempmpshmb->read_position] : len;
+
+  memcpy(data, src_offset_data + ((tempmpshmb->read_position) << 18), *readLen);
+
+  return 1;
+  
 }
 
 
