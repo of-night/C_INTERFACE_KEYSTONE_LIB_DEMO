@@ -102,6 +102,81 @@ int aFileSize(int fileSize);
 int which_pb_buffer_read(MultiThreadedBuffer *mtb, char *data, int length, int *readLen);
 
 
+// ==================================================================================
+//				Multi-process Keystone Encrypt
+// ==================================================================================
+
+// 半部分缓冲区
+typedef struct {
+    int read_pos;          // 当前读位置
+    int write_pos;         // 当前写位置
+    int running;           // 标记是否正在运行
+    int MaxSpace;          // 标记是否正在运行
+} HalfPartSHMBuffer;
+
+typedef struct {
+    HalfPartSHMBuffer qpb;             // 前半部分
+    HalfPartSHMBuffer hpb;             // 后半部分
+    int offset;
+} MultiProcessSHMBuffer;
+
+
+#define shmKey (241227)
+
+// 创建共享内存
+void *creat_shareMemory(int shmsize);
+
+// 为当前进程连接共享内存
+void *attach_shareMemory(int shmsize);
+
+// 断开连接共享内存
+void detach_shareMemory(void* shmaddr);
+
+// 删除共享内存段
+void removeShm(int shmsize);
+
+
+
+int MultiProcessRead(void* shmaddr, int shmsize, void* data, int len, int* readLen);
+
+void waitKeystoneReady(void *shmaddr);
+
+
+// ==================================================================================
+//				Multi-process Cross-read Keystone Encrypt
+// ==================================================================================
+typedef struct {
+    int ready1;             
+    int ready2;             
+    long long read_position;             
+    long long offset;
+} MultiProcessCrossSHMBuffer;
+
+typedef struct {
+    char fileName[50];
+    long long start_offset;
+} MultiCrossFile;
+
+// 16字节对齐
+long long long_alignedFileSize(long long fileSize);
+
+// 计算块的数量，向上取整
+long long long_alignedFileSize_blocksnums(long long fileSize);
+
+// 创建共享内存
+void *long_create_shareMemory(long long shmsize);
+
+// 删除共享内存段
+void long_removeShm(long long shmsize);
+
+// 启动keystone之前先初始化内存空间
+void crossInitSHM(void *shmaddr, long long blocksNums);
+
+// 等待keystone already
+void crosswaitKeystoneReady(void *shmaddr);
+
+// ipfs 读数据
+int MultiProcessCrossRead(void* shmaddr, int shmsize, void* data, int len, int* readLen);
 
 #ifdef __cplusplus
 }
