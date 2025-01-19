@@ -178,6 +178,37 @@ void crosswaitKeystoneReady(void *shmaddr);
 // ipfs 读数据
 int MultiProcessCrossRead(void* shmaddr, int shmsize, void* data, int len, int* readLen);
 
+
+// ==================================================================================
+//				Multi-process Cross-read Flexible Keystone Encrypt
+// ==================================================================================
+
+#define MAXKEYSTONENUMBER 10
+
+typedef struct {
+    int ready[MAXKEYSTONENUMBER];                          
+    long long read_position;             
+    long long offset;
+} MultiProcessCrossFlexibleSHMBuffer;
+
+typedef struct {
+    char fileName[50];
+    long long start_offset;
+    int numberKeystone;
+} MultiCrossFlexibleFile;
+
+// MAXNUM 10
+void fixFlexibleNum(void* flexible);
+
+// 启动keystone之前先初始化内存空间
+void flexiblecrossInitSHM(void *shmaddr, long long blocksNums);
+
+// 等待keystone already
+void flexiblecrosswaitKeystoneReady(void *shmaddr, int flexible);
+
+// ipfs 读数据
+int MultiProcessCrossReadFlexible(void* shmaddr, int shmsize, void* data, int len, int* readLen);
+
 #ifdef __cplusplus
 }
 #endif

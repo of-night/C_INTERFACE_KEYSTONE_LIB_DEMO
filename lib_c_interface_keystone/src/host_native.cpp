@@ -1187,3 +1187,77 @@ int MultiProcessCrossRead(void* shmaddr, int shmsize, void* data, int len, int* 
 
 
 
+
+// ==================================================================================
+//				Multi-process Cross-read Flexible Keystone Encrypt
+// ==================================================================================
+
+// MAXNUM 10
+void fixFlexibleNum(void* flexible) {
+    *(int*)flexible = MAXKEYSTONENUMBER > *(int*)flexible ? *(int*)flexible : MAXKEYSTONENUMBER;
+    return;
+}
+
+// 启动keystone之前先初始化内存空间
+void flexiblecrossInitSHM(void *shmaddr, long long blocksNums) {
+  MultiProcessCrossFlexibleSHMBuffer *tMCFSM = (MultiProcessCrossFlexibleSHMBuffer*)shmaddr;
+
+  tMCFSM->offset = blocksNums * (sizeof(unsigned int));
+  for (int i = 0; i < MAXKEYSTONENUMBER; ++i) {
+    tMCFSM->ready[i] = 0;
+  }
+  tMCFSM->read_position = 0;
+
+  unsigned int* tflag = (unsigned int*)((char*)shmaddr + sizeof(MultiProcessCrossFlexibleSHMBuffer));
+
+  for (int i = 0; i < blocksNums; ++i) {
+    tflag[i] = 0;
+  }
+  
+}
+
+// 等待keystone already
+void flexiblecrosswaitKeystoneReady(void *shmaddr, int flexible) {
+  MultiProcessCrossFlexibleSHMBuffer *tMCFSM = (MultiProcessCrossFlexibleSHMBuffer*)shmaddr;
+
+  int flag = 0;
+
+  while (flag  == flexible)
+  {
+    if (tMCFSM->ready[flag] == 1) {
+      flag += 1;
+    }
+  }
+  
+}
+
+int MultiProcessCrossReadFlexible(void* shmaddr, int shmsize, void* data, int len, int* readLen) {
+  MultiProcessCrossFlexibleSHMBuffer* tMPCFSB = (MultiProcessCrossFlexibleSHMBuffer*)shmaddr;
+
+  unsigned int* src_offset_flag = (unsigned int*)((char*)shmaddr + sizeof(MultiProcessCrossFlexibleSHMBuffer));
+  char* src_offset_data = (char*)shmaddr + sizeof(MultiProcessCrossFlexibleSHMBuffer) + tMPCFSB->offset;
+
+  while (src_offset_flag[tMPCFSB->read_position] == 0 && (tMPCFSB->offset > (tMPCFSB->read_position * 4)))
+  {
+    ;
+  }
+
+  if (tMPCFSB->offset <= (tMPCFSB->read_position * 4)) {
+    return 0;
+  }
+
+  if (src_offset_flag[tMPCFSB->read_position] == 0) {
+    printf("Keystone write data error\n");
+    return 0;
+  }
+
+  *readLen = len > src_offset_flag[tMPCFSB->read_position] ? src_offset_flag[tMPCFSB->read_position] : len;
+
+  memcpy(data, src_offset_data + ((tMPCFSB->read_position) << 18), *readLen);
+  tMPCFSB->read_position += 1;
+
+  // printf("read_position:%d\n offset:%d\n", tMPCFSB->read_position, tMPCFSB->offset);
+
+  return 1;
+  
+}
