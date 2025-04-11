@@ -30,6 +30,7 @@ class Memory {
   virtual void writeMem(uintptr_t src, uintptr_t dst, size_t size) = 0;
   virtual uintptr_t allocMem(size_t size)                          = 0;
   virtual uintptr_t allocUtm(size_t size)                          = 0;
+  virtual uintptr_t allocYXSTm(size_t size, uint64_t ms)           = 0;
   size_t epmAllocVspace(uintptr_t addr, size_t num_pages);
   uintptr_t allocPages(size_t size); 
 
@@ -49,6 +50,7 @@ class Memory {
   uintptr_t getEappPhysAddr() { return eappPhysAddr; }
   uintptr_t getFreePhysAddr() { return freePhysAddr; }
   uintptr_t getUTMPhysAddr() { return utmPhysAddr; }
+  uintptr_t getYXSTMPhysAddr() { return YXSTmPhysAddr; }
 
   KeystoneDevice* pDevice;
   size_t epmSize;
@@ -62,6 +64,9 @@ class Memory {
   uintptr_t utmPhysAddr;
   uintptr_t untrustedPtr;
   uintptr_t untrustedSize;
+  uintptr_t YXSTmPhysAddr;
+  uintptr_t YXSTrustedSize;
+  uintptr_t ms_YXSTM;
 };
 
 class PhysicalEnclaveMemory : public Memory {
@@ -73,6 +78,7 @@ class PhysicalEnclaveMemory : public Memory {
   void writeMem(uintptr_t src, uintptr_t dst, size_t size);
   uintptr_t allocMem(size_t size);
   uintptr_t allocUtm(size_t size);
+  uintptr_t allocYXSTm(size_t size, uint64_t ms);
 };
 
 // Simulated memory reads/writes from calloc'ed memory
@@ -88,6 +94,7 @@ class SimulatedEnclaveMemory : public Memory {
   void writeMem(uintptr_t src, uintptr_t dst, size_t size);
   uintptr_t allocMem(size_t size);
   uintptr_t allocUtm(size_t size);
+  uintptr_t allocYXSTm(size_t size, uint64_t ms);
 };
 
 }  // namespace Keystone

@@ -102,6 +102,163 @@ int aFileSize(int fileSize);
 int which_pb_buffer_read(MultiThreadedBuffer *mtb, char *data, int length, int *readLen);
 
 
+// ==================================================================================
+//				Multi-process Keystone Encrypt
+// ==================================================================================
+
+// 半部分缓冲区
+typedef struct {
+    int read_pos;          // 当前读位置
+    int write_pos;         // 当前写位置
+    int running;           // 标记是否正在运行
+    int MaxSpace;          // 标记是否正在运行
+} HalfPartSHMBuffer;
+
+typedef struct {
+    HalfPartSHMBuffer qpb;             // 前半部分
+    HalfPartSHMBuffer hpb;             // 后半部分
+    int offset;
+} MultiProcessSHMBuffer;
+
+
+#define shmKey (241227)
+
+// 创建共享内存
+void *creat_shareMemory(int shmsize);
+
+// 为当前进程连接共享内存
+void *attach_shareMemory(int shmsize);
+
+// 断开连接共享内存
+void detach_shareMemory(void* shmaddr);
+
+// 删除共享内存段
+void removeShm(int shmsize);
+
+
+
+int MultiProcessRead(void* shmaddr, int shmsize, void* data, int len, int* readLen);
+
+void waitKeystoneReady(void *shmaddr);
+
+
+// ==================================================================================
+//				Multi-process Cross-read Keystone Encrypt
+// ==================================================================================
+typedef struct {
+    int ready1;             
+    int ready2;             
+    long long read_position;             
+    long long offset;
+} MultiProcessCrossSHMBuffer;
+
+typedef struct {
+    char fileName[50];
+    long long start_offset;
+} MultiCrossFile;
+
+// 16字节对齐
+long long long_alignedFileSize(long long fileSize);
+
+// 计算块的数量，向上取整
+long long long_alignedFileSize_blocksnums(long long fileSize);
+
+// 创建共享内存
+void *long_create_shareMemory(long long shmsize);
+
+// 删除共享内存段
+void long_removeShm(long long shmsize);
+
+// 启动keystone之前先初始化内存空间
+void crossInitSHM(void *shmaddr, long long blocksNums);
+
+// 等待keystone already
+void crosswaitKeystoneReady(void *shmaddr);
+
+// ipfs 读数据
+int MultiProcessCrossRead(void* shmaddr, int shmsize, void* data, int len, int* readLen);
+
+
+// ==================================================================================
+//				Multi-process Cross-read Flexible Keystone Encrypt
+// ==================================================================================
+
+#define MAXKEYSTONENUMBER 10
+
+typedef struct {
+    int ready[MAXKEYSTONENUMBER];                          
+    long long read_position;             
+    long long offset;
+} MultiProcessCrossFlexibleSHMBuffer;
+
+typedef struct {
+    char fileName[50];
+    long long start_offset;
+    int numberKeystone;
+} MultiCrossFlexibleFile;
+
+// MAXNUM 10
+void fixFlexibleNum(void* flexible);
+
+// 启动keystone之前先初始化内存空间
+void flexiblecrossInitSHM(void *shmaddr, long long blocksNums);
+
+// 等待keystone already
+void flexiblecrosswaitKeystoneReady(void *shmaddr, int flexible);
+
+// ipfs 读数据
+int MultiProcessCrossReadFlexible(void* shmaddr, int shmsize, void* data, int len, int* readLen);
+
+
+// ==================================================================================
+//				Multi-process Keystone Decrypt
+// ==================================================================================
+
+typedef struct {
+    int ready;                          
+    long long read_position;             
+    long long offset;
+} MultiProcessTEEDispatchSHMBuffer;
+
+typedef struct {
+    long long start_offset;
+    int numberKeystone;
+} MultiDispath;
+
+#define dispath_shmKey 250227
+
+// 设置总大小
+void dispathSetLength(unsigned long long size);
+
+// 获取总大小
+void dispathGetLength(unsigned long long *size);
+
+// 计算每个enclave最少dispath的blocks数量，和剩余的数量
+void dispath_blocks(unsigned long long fileSize, void* eblock, void* seblock, int flexible);
+
+// 创建共享内存
+void *dispath_long_create_shareMemory(long long shmsize, int en_id);
+
+// 断开连接共享内存
+void dispath_detach_shareMemory(void* shmaddr);
+
+// 删除共享内存段
+void dispath_long_removeShm(long long shmsize, int en_id);
+
+// 启动keystone之前先初始化内存空间
+void dispath_InitSHM(void *shmaddr, long long blocksNums);
+
+// 等待keystone already
+int dispathwaitKeystoneReady(void *shmaddr);
+
+// 计算bnumber
+long long dispathBNumber(long long* blockcount, int flexible);
+
+// 调度器将数据读取到调度器与enclave之间的共享内存中
+int dispath_data_block(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen);
+
+// 调度器将数据读取到调度器与enclave之间的共享内存中
+int dispath_data_block_4096(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen);
 
 #ifdef __cplusplus
 }

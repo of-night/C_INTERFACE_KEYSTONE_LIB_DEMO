@@ -49,6 +49,30 @@ int
 attest_enclave(void* report, void* data, size_t size);
 
 int
+m_enclave_create_group(void* identity, size_t size);
+
+int
+s_enclave_join_group(void* identity, size_t size);
+
+int
+slave_enclave_set_dataptr(void* src, size_t size, size_t numbers);
+
+int
+main_enclave_get_slave_enclave_data(void* dest, size_t size, size_t numbers);
+
+int
+slave_enclave_set_dataptr_yx(void* src);
+
+int
+main_enclave_get_slave_enclave_data_yx(void* dest);
+
+int
+main_enclave_get_numberblock(void* dest, size_t set_number, size_t size);
+
+int
+slave_enclave_set_numberblock(void* src, size_t set_number, size_t size);
+
+int
 get_sealing_key(
     struct sealing_key* sealing_key_struct, size_t sealing_key_struct_size,
     void* key_ident, size_t key_ident_size);

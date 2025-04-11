@@ -23,6 +23,12 @@
 #define SBI_SM_GET_SEALING_KEY   3003
 #define SBI_SM_STOP_ENCLAVE      3004
 #define SBI_SM_EXIT_ENCLAVE      3006
+#define SBI_SM_MAIN_ENCLAVE_GET_SLAVE_ENCLAVE_DATA 3007
+#define SBI_SM_SLAVE_ENCLAVE_SET_DATAPTR           3008
+#define SBI_SM_M_ENCLAVE_CREATE_GROUP              3009
+#define SBI_SM_S_ENCLAVE_JOIN_GROUP                3010
+#define SBI_SM_M_ENCLAVE_YXSTM_GET_NUMBERBLOCK_PMP 3011
+#define SBI_SM_S_ENCLAVE_YXSTM_SET_NUMBERBLOCK_PMP 3012
 #define FID_RANGE_ENCLAVE        3999
 
 /* 4000-4999 are experimental */
@@ -48,6 +54,8 @@ struct runtime_params_t {
   uintptr_t free_base;
   uintptr_t untrusted_base;
   uintptr_t untrusted_size;
+  uintptr_t YXSTrusted_base;
+  uintptr_t YXSTrusted_size;
   uintptr_t free_requested; // for attestation
 };
 
@@ -59,6 +67,8 @@ struct keystone_sbi_pregion_t {
 struct keystone_sbi_create_t {
   struct keystone_sbi_pregion_t epm_region;
   struct keystone_sbi_pregion_t utm_region;
+  struct keystone_sbi_pregion_t YXSTM_region;
+  uintptr_t ms_YXSTM;
 
   uintptr_t runtime_paddr;
   uintptr_t user_paddr;
