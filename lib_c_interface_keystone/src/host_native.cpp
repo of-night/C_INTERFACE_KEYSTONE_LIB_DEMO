@@ -1419,7 +1419,7 @@ int dispath_data_block_4096(void *shmaddr, long long shmsize, char* p, int pLen,
 
   char* dataSrc =(char*)shmaddr + dataOffset;
 
-  if (tflag[i] + pLen > 256 * 1024) {
+  if (tflag[i] + pLen > 262144) {
     std::cout << "ipfs host_native error tflag[i] + pLen " << tflag[i] + pLen << std::endl;
     return 0;
   }
@@ -1429,6 +1429,10 @@ int dispath_data_block_4096(void *shmaddr, long long shmsize, char* p, int pLen,
   tflag[i] += pLen;
 
   if (tflag[i] == 256*1024) dispathSHM->read_position++;
+
+  if (dataOffset + pLen == shmsize) {
+    dispathSHM->read_position++;
+  }
 
   // std::cout << "ipfs host_native testing " << tflag[i] << ", " << *readLen << ", " << pLen << "dispathSHM->read_position=" << dispathSHM->read_position << std::endl;
   return 1;

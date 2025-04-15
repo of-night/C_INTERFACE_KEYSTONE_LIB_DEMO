@@ -273,8 +273,13 @@ void dispath_buffer_read_wrapper(void* buffer) {
     }
 
     // std::cout << "numberKeystone " << MULTIDISPATH->numberKeystone << " while start shmpb_offset_flag[count_POSITION] = " << shmpb_offset_flag[count_POSITION] << std::endl;
-    while (shmpb_offset_flag[count_POSITION]==0) {
-      ;
+    // while (shmpb_offset_flag[count_POSITION]==0) {
+    //   ;
+    // }
+    while (shmpb_offset_flag[count_POSITION]<262144) {
+      if(count_POSITION < tempmpshb->read_position) {
+        break;
+      }
     }
     // while (count_POSITION == tempmpshb->read_position) {
     //   ;
