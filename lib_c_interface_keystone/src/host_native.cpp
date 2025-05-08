@@ -1269,9 +1269,15 @@ int MultiProcessCrossReadFlexible(void* shmaddr, int shmsize, void* data, int le
 
 static unsigned long long DISPATHsize = 0ULL;
 
+static unsigned long long DISPATH_engine_seq = 0ULL;
+
 // 设置总大小
 void dispathSetLength(unsigned long long size) {
   DISPATHsize = size;
+}
+
+unsigned long long getDispathEngineSeq() {
+  return ++DISPATH_engine_seq;
 }
 
 // 获取总大小

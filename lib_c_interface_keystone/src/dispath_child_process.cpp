@@ -30,8 +30,8 @@ void dispath_buffer_read_wrapper(void* buffer);
 MultiDispath* MULTIDISPATH = NULL;
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        printf("Usage: %s <is_aes> <shm_size> <start_offset> <flexible>\n", argv[0]);
+    if (argc != 6) {
+        printf("Usage: %s <is_aes> <shm_size> <start_offset> <flexible> <engine_id>\n", argv[0]);
         return 0;
     }
 
@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
     SHMSIZE = atoi(argv[2]);
     long long start_offset = atoi(argv[3]);
     int flexible = atoi(argv[4]);
+    unsigned long long engine_id = atoi(argv[5]);
 
     MULTIDISPATH = (MultiDispath*)malloc(sizeof(MultiDispath));
     if (MULTIDISPATH == NULL) {
@@ -78,7 +79,9 @@ int main(int argc, char *argv[]) {
 
     params.setFreeMemSize(256 * 1024 * 1024);
     params.setUntrustedSize(2 * 1024 * 1024);
-    params.setYXms(1);
+    // params.setYXms(1);
+    params.setEngineID(engine_id);
+    params.setYXms(flexible);
     params.setYXShareTrustedMemSize(1*1024*1024);
 
     // char maeseappName[] = "mdemultiaes";
