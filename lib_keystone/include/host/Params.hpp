@@ -29,6 +29,7 @@
 #define DEFAULT_UNTRUSTED_SIZE 8192  // 8 KB
 #define DEFAULT_YXSHARETRUSTED_SIZE 256 * 1024  // 256 KB
 #define DEFAULT_MS_YXSTM 0  //  no ms, not use YXSTM
+#define DEFAULT_MS_ENGINE_ID 0  //  no engine is, no ms, not use YXSTM
 
 /* parameters for enclave creation */
 namespace Keystone {
@@ -40,6 +41,7 @@ class Params {
     freemem_size   = DEFAULT_FREEMEM_SIZE;
     YXsharedtrusted_size  = DEFAULT_YXSHARETRUSTED_SIZE;
     ms                    = DEFAULT_MS_YXSTM;
+    engine_id             = DEFAULT_MS_ENGINE_ID;
   }
 
   void setUntrustedSize(uint64_t size) { untrusted_size = size; }
@@ -47,15 +49,18 @@ class Params {
   uintptr_t getUntrustedSize() { return untrusted_size; }
   uintptr_t getFreeMemSize() { return freemem_size; }
   uintptr_t getYXShareTrustedMemSize() { return YXsharedtrusted_size; }
-  int getYXms() { return ms; }
+  uint64_t getYXms() { return ms; }
+  uint64_t getEngineID() { return engine_id; }
   void setYXShareTrustedMemSize(uint64_t size) { YXsharedtrusted_size = size; }
   void setYXms(uint64_t _ms) { ms = _ms; }
+  void setEngineID(uint64_t _engine_id) { engine_id = _engine_id; }
 
  private:
   uint64_t untrusted_size;
   uint64_t freemem_size;
   uint64_t YXsharedtrusted_size;
   uint64_t ms;
+  uint64_t engine_id;
 };
 
 }  // namespace Keystone

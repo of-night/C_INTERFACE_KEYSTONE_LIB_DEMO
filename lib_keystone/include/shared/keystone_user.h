@@ -28,6 +28,18 @@
   _IOR(KEYSTONE_IOC_MAGIC, 0x07, struct keystone_ioctl_create_enclave)
 #define KEYSTONE_IOC_YXSTM_INIT \
   _IOR(KEYSTONE_IOC_MAGIC, 0x08, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_TEST_OS_ACCESS_STM_RUN_ENCLAVE \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x09, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_TEST_OS_ACCESS_STM_RESUME_ENCLAVE \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x0a, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_TEST_OS_ACCESS_EPM_RUN_ENCLAVE \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x0b, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_TEST_OS_ACCESS_EPM_RESUME_ENCLAVE \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x0c, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_TEST_OTHER_OS_ACCESS_EPM_CREATE_ENCLAVE \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x0d, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_TEST_OTHER_OS_ACCESS_EPM_FINALIZE_ENCLAVE \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x0e, struct keystone_ioctl_create_enclave)
 
 #define RT_NOEXEC 0
 #define USER_NOEXEC 1
@@ -40,6 +52,8 @@ struct keystone_ioctl_create_enclave {
 
   // ms
   uintptr_t ms;
+  // engine id
+  uintptr_t engine_id;
 
   // host -> driver
   uintptr_t min_pages; // create

@@ -260,6 +260,47 @@ int dispath_data_block(void *shmaddr, long long shmsize, char* p, int pLen, int*
 // 调度器将数据读取到调度器与enclave之间的共享内存中
 int dispath_data_block_4096(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen);
 
+unsigned long long getDispathEngineSeq();
+
+// ==================================================================================
+//				Multi-process Keystone Decrypt secure dispatch
+// ==================================================================================
+
+#define SECURE_DISPATCH_SHMKEY (250509)
+
+typedef struct {
+    long long start_offset;     // 是第几个enclave，如果是0，则是main，其余则是slave
+    int numberKeystone;         // 一共有几个enclave
+} SecureMultiDispatch;
+
+typedef struct {                        
+    long long read_position;             
+    long long offset;
+} MultiProcessTEESecureDispatchSHMBuffer;
+
+// create shm
+void* secure_dispatch_ulnoglong_create_shareMemory(unsigned long long shmsize);
+
+// init shm
+void secure_dispacth_initSHM(void* shmaddr, unsigned long long blockNum, int flexible);
+
+// get shmsize
+unsigned long long MultiProcessTEESecureDispatchGetSHMSize(unsigned long long fileSize, void* blockNum, int flexible);
+
+// detach shm
+void secure_dispatch_detach_shareMemory(void* shmaddr);
+
+// remove shm
+void secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shmsize);
+
+// 等待keystone already
+void secure_dispatch_waitKeystoneReady(void *shmaddr, int flexible);
+
+// 等待keystone done
+void secure_dispatch_waitKeystoneDone(void *shmaddr, int flexible);
+
+int secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen, int flexible);
+
 #ifdef __cplusplus
 }
 #endif

@@ -31,6 +31,7 @@ class Memory {
   virtual uintptr_t allocMem(size_t size)                          = 0;
   virtual uintptr_t allocUtm(size_t size)                          = 0;
   virtual uintptr_t allocYXSTm(size_t size, uint64_t ms)           = 0;
+  virtual uintptr_t allocYXSTm(size_t size, uint64_t ms, uint64_t _engine_id)  = 0;
   size_t epmAllocVspace(uintptr_t addr, size_t num_pages);
   uintptr_t allocPages(size_t size); 
 
@@ -67,6 +68,7 @@ class Memory {
   uintptr_t YXSTmPhysAddr;
   uintptr_t YXSTrustedSize;
   uintptr_t ms_YXSTM;
+  uintptr_t engine_id;
 };
 
 class PhysicalEnclaveMemory : public Memory {
@@ -79,6 +81,7 @@ class PhysicalEnclaveMemory : public Memory {
   uintptr_t allocMem(size_t size);
   uintptr_t allocUtm(size_t size);
   uintptr_t allocYXSTm(size_t size, uint64_t ms);
+  uintptr_t allocYXSTm(size_t size, uint64_t ms, uint64_t _engine_id);
 };
 
 // Simulated memory reads/writes from calloc'ed memory
@@ -95,6 +98,7 @@ class SimulatedEnclaveMemory : public Memory {
   uintptr_t allocMem(size_t size);
   uintptr_t allocUtm(size_t size);
   uintptr_t allocYXSTm(size_t size, uint64_t ms);
+  uintptr_t allocYXSTm(size_t size, uint64_t ms, uint64_t _engine_id);
 };
 
 }  // namespace Keystone

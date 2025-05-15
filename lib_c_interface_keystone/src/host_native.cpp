@@ -1446,3 +1446,125 @@ int dispath_data_block_4096(void *shmaddr, long long shmsize, char* p, int pLen,
 
 
 
+
+// ==================================================================================
+//				Multi-process Keystone Decrypt secure dispatch
+// ==================================================================================
+
+// create shm
+void* secure_dispatch_ulnoglong_create_shareMemory(unsigned long long shmsize) {
+  int id = shmget(SECURE_DISPATCH_SHMKEY, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// detach shm
+void secure_dispatch_detach_shareMemory(void* shmaddr) {
+  shmdt(shmaddr);
+}
+
+// remove shm
+void secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shmsize) {
+  int id = shmget(shmKey, shmsize, 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  if (shmctl(id, IPC_RMID, NULL) == -1) {
+    perror("shmctl");
+    exit(-1);
+  }
+}
+
+void secure_dispacth_initSHM(void* shmaddr, unsigned long long blockNum, int flexible) {
+  int *enclave_ready = (int*)shmaddr;
+  for (int i = 0; i < flexible; ++i) {
+    enclave_ready[i] = 0;
+  }
+
+  int transfer_to_main_offset = (sizeof(int) * flexible);
+  MultiProcessTEESecureDispatchSHMBuffer *transfer_to_main = (MultiProcessTEESecureDispatchSHMBuffer*)((char*)shmaddr + transfer_to_main_offset);
+  transfer_to_main->read_position = 0;
+  transfer_to_main->offset = transfer_to_main_offset + sizeof(MultiProcessTEESecureDispatchSHMBuffer) + (blockNum * sizeof(int));
+
+  int *blockNum_flag = (int*)((char*)shmaddr + transfer_to_main_offset + sizeof(MultiProcessTEESecureDispatchSHMBuffer));
+  for (int i = 0; i < blockNum; ++i) {
+    blockNum_flag[i] = 0;
+  }
+
+}
+
+// get shmsize
+unsigned long long MultiProcessTEESecureDispatchGetSHMSize(unsigned long long fileSize, void* blockNum, int flexible) {
+  *(unsigned long long*)blockNum = ((fileSize + 0x3ffff)>> 18);
+  return (sizeof(int) * flexible) + sizeof(MultiProcessTEESecureDispatchSHMBuffer) + (((fileSize + 0x3ffff)>> 18) * sizeof(int)) + fileSize;
+}
+
+// 等待keystone already
+void secure_dispatch_waitKeystoneReady(void *shmaddr, int flexible){
+  int *enclave_ready = (int*)shmaddr;
+
+  for (int i = flexible; i < flexible; i--) {
+    while(1) {
+      if (enclave_ready[i] == 1) {
+        break;
+      }
+    }
+  }
+}
+
+// 等待keystone done
+void secure_dispatch_waitKeystoneDone(void *shmaddr, int flexible){
+  int *enclave_ready = (int*)shmaddr;
+
+  for (int i = flexible; i < flexible; i--) {
+    while(1) {
+      if (enclave_ready[i] == 2) {
+        break;
+      }
+    }
+  }
+}
+
+int secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen, int flexible) {
+  int transfer_to_main_offset = (sizeof(int) * flexible);
+  MultiProcessTEESecureDispatchSHMBuffer *transfer_to_main = (MultiProcessTEESecureDispatchSHMBuffer*)((char*)shmaddr + transfer_to_main_offset);
+  
+  int i = transfer_to_main->read_position;
+
+  long long blockNum_flag_offset = transfer_to_main_offset + sizeof(MultiProcessTEESecureDispatchSHMBuffer);
+  int *blockNum_flag = (int*)((char*)shmaddr + blockNum_flag_offset);
+
+  long long block_data_offset = transfer_to_main->offset + i << 18 + blockNum_flag[i];
+  char *block_data = (char*)shmaddr + block_data_offset;
+
+  if (block_data_offset + pLen > shmsize || blockNum_flag[i] + pLen > 262144) {
+    return 0;
+  }
+
+  memcpy(block_data, p, pLen);
+  *readLen = pLen;
+  blockNum_flag[i] += pLen;
+
+  if (blockNum_flag[i] == 262144) {
+    transfer_to_main->read_position++;
+  }
+
+  if (block_data_offset + pLen == shmsize) {
+    transfer_to_main->read_position++;
+  }
+
+  return 1;
+}
+
