@@ -82,16 +82,22 @@ int
 other_enclave_access_epm_test_s(void* flag);
 
 int
-m_attestt_s_enclave();
+m_attestt_s_enclave(size_t slave_id, size_t flexible);
 
 int
-s_enclave_attestted();
+s_enclave_attestted(size_t slave_id, size_t flexible);
 
 int
-wait_main_dispatch(void* dest, void* size, void* set_number);
+wait_main_dispatch(void* dest, void* block_id, void* block_size, size_t slave_id, size_t flexible);
 
 int
-main_dispatch_send(void* src, size_t size, size_t set_number, size_t slave_id);
+main_dispatch_send(void* src, size_t block_id, size_t block_size, size_t slave_id, size_t flexible);
+
+int
+slave_set_block(void* src, size_t block_id, size_t block_size, size_t slave_id, size_t flexible);
+
+int
+get_slave_block(void* dest, size_t block_id, size_t block_size, size_t slave_id, size_t flexible);
 
 int
 get_sealing_key(

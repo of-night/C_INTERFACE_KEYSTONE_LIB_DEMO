@@ -19,6 +19,8 @@
 #define RUNTIME_SYSCALL_S_ENCLAVE_ATTESTTED                 1015
 #define RUNTIME_SYSCALL_WAIT_MAIN_DISPATCH                  1016
 #define RUNTIME_SYSCALL_MAIN_DISPATCH_SEND                  1017
+#define RUNTIME_SYSCALL_SLAVE_SET_BLOCK                     1018
+#define RUNTIME_SYSCALL_GET_SLAVE_BLOCK                     1019
 #define RUNTIME_SYSCALL_EXIT                1101
 
 #endif  // __EYRIE_CALL_H__
