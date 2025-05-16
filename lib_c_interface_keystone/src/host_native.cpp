@@ -1475,7 +1475,7 @@ void secure_dispatch_detach_shareMemory(void* shmaddr) {
 
 // remove shm
 void secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shmsize) {
-  int id = shmget(shmKey, shmsize, 0666);
+  int id = shmget(SECURE_DISPATCH_SHMKEY, shmsize, 0666);
   if (id == -1) {
     perror("Failed to get shared memory");
     exit(-1);
@@ -1546,23 +1546,42 @@ int secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, i
   long long blockNum_flag_offset = transfer_to_main_offset + sizeof(MultiProcessTEESecureDispatchSHMBuffer);
   int *blockNum_flag = (int*)((char*)shmaddr + blockNum_flag_offset);
 
-  long long block_data_offset = transfer_to_main->offset + i << 18 + blockNum_flag[i];
+  long long block_data_offset = transfer_to_main->offset + (i << 18) + blockNum_flag[i];
   char *block_data = (char*)shmaddr + block_data_offset;
 
-  if (block_data_offset + pLen > shmsize || blockNum_flag[i] + pLen > 262144) {
+  if (block_data_offset + pLen > shmsize) {
+    std::cout << "block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
     return 0;
   }
 
+  int tempSize = blockNum_flag[i] + pLen;
+
   memcpy(block_data, p, pLen);
   *readLen = pLen;
-  blockNum_flag[i] += pLen;
 
-  if (blockNum_flag[i] == 262144) {
+  if (tempSize > 262144) {
+    blockNum_flag[i] = 262144;
+    blockNum_flag[i + 1] = tempSize - 262144;
     transfer_to_main->read_position++;
+    // std::cout << "i1: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+    if (block_data_offset + pLen == shmsize) {
+      transfer_to_main->read_position++;
+      // std::cout << "i2: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+    }
+    return 1;
+  } else {
+    blockNum_flag[i] = tempSize;
+
+    if (blockNum_flag[i] == 262144) {
+      transfer_to_main->read_position++;
+      // std::cout << "i3: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+      return 1;
+    }
   }
 
   if (block_data_offset + pLen == shmsize) {
     transfer_to_main->read_position++;
+    // std::cout << "i4: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
   }
 
   return 1;
