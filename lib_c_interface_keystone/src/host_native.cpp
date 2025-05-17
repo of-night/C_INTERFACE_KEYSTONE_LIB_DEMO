@@ -1528,7 +1528,7 @@ void secure_dispatch_waitKeystoneReady(void *shmaddr, int flexible){
 void secure_dispatch_waitKeystoneDone(void *shmaddr, int flexible){
   int *enclave_ready = (int*)shmaddr;
 
-  for (int i = flexible; i < flexible; i--) {
+  for (int i = (flexible -1); i >= 0; i--) {
     while(1) {
       if (enclave_ready[i] == 2) {
         break;

@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     // 设置 Keystone Done
     if (start_offset == 0) {
       for (int i = flexible - 1; i > 0;i--) {
-        while(*(KEYSTONE_READY_FLAG + i) == 2){
+        while(*(KEYSTONE_READY_FLAG + i) != 2){
 
         }
       }
@@ -273,7 +273,7 @@ void dispatch_buffer_read_wrapper(void* buffer) {
     }
 
     // std::cout << "shm_offset_data = " << shm_offset_data << "?= &shm_offset_flag[count_POSITION] = " << &shm_offset_flag[count_POSITION] << std::endl;
-    if (&shm_offset_flag[count_POSITION] ==   ) {
+    if (&shm_offset_flag[count_POSITION] == shm_offset_data) {
       if (edge_call_setup_wrapped_ret(edge_call, NULL, 0)) {
         edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
       } else {
