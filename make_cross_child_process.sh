@@ -2,6 +2,12 @@
 
 CXX=riscv64-buildroot-linux-gnu-g++
 
+if ! command -v "${CXX}"
+then
+	echo "set CXX"
+    source source.sh
+fi
+
 VF_KEYSTONE=/home/yx/Desktop/vf-keystone
 
 KEYSTONELIB=${VF_KEYSTONE}/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_keystone/lib

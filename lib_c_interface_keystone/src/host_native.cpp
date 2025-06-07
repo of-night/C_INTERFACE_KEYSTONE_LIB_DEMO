@@ -1487,6 +1487,7 @@ void secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shmsize) {
   }
 }
 
+// init shm
 void secure_dispacth_initSHM(void* shmaddr, unsigned long long blockNum, int flexible) {
   int *enclave_ready = (int*)shmaddr;
   for (int i = 0; i < flexible; ++i) {
@@ -1515,7 +1516,7 @@ unsigned long long MultiProcessTEESecureDispatchGetSHMSize(unsigned long long fi
 void secure_dispatch_waitKeystoneReady(void *shmaddr, int flexible){
   int *enclave_ready = (int*)shmaddr;
 
-  for (int i = flexible; i < flexible; i--) {
+  for (int i = (flexible - 1); i >= 0; i--) {
     while(1) {
       if (enclave_ready[i] == 1) {
         break;
@@ -1585,5 +1586,211 @@ int secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, i
   }
 
   return 1;
+}
+
+
+// ==================================================================================
+//				The new dir Multi-process Keystone Decrypt secure dispatch
+// ==================================================================================
+
+// get just call shmsize
+unsigned long long TheNewDirMultiProcessTEESecureDispatchGetSHMSizeJustCall(int flexible) {
+  return (sizeof(int) * flexible) + sizeof(TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall);
+}
+
+// create shm just call
+void* the_new_dir_secure_dispatch_ulnoglong_create_shareMemory_just_call(unsigned long long shmsize) {
+  int id = shmget(THE_NEW_DIR_SECURE_DISPATCH_SHMKEY_JUST_CALL, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    printf("%s: \n", __func__);
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// create shm transfer file
+static void* the_new_dir_secure_dispatch_ulnoglong_create_shareMemory_transfer_file(unsigned long long shmsize, unsigned long long fileCount) {
+  // printf("%s: fileCount=%lu\n", __func__, THE_NEW_DIR_SECURE_DISPATCH_SHMKEY_JUST_CALL + fileCount);
+  int id = shmget(THE_NEW_DIR_SECURE_DISPATCH_SHMKEY_JUST_CALL + fileCount, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    printf("%s: \n", __func__);
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// init shm just call
+void the_new_secure_dispacth_initSHM_just_call(void* shmaddr, int flexible) {
+  int *enclave_ready = (int*)shmaddr;
+  for (int i = 0; i < flexible; ++i) {
+    enclave_ready[i] = 0;
+  }
+
+  TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall *transfer_to_main_just_call = (TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall*)((char*)shmaddr + (sizeof(int) * flexible));
+  transfer_to_main_just_call->fileSize = 0;
+  transfer_to_main_just_call->shmReady = 0;
+  transfer_to_main_just_call->fileCount = 0;
+}
+
+// wait keystone already just call
+void the_new_secure_dispatch_waitKeystoneReady_just_call(void *shmaddr, int flexible) {
+  int *enclave_ready = (int*)shmaddr;
+
+  for (int i = (flexible -1); i >= 0 ; i--) {
+    while(1) {
+      if (enclave_ready[i] == 1) {
+        break;
+      }
+    }
+  }
+}
+
+static unsigned long long THENEWDIRDISPATHfilesize = 0ULL;
+
+// set filesize and create transfer file shm
+void* thenewdirsecuredispathSetLength(void *shmaddr, void* blockNum, void* size, int flexible) {
+  TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall *transfer_to_main_just_call = (TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall*)((char*)shmaddr + (sizeof(int) * flexible));
+  // printf("%s, size:%lu\n", __func__, *(unsigned long long *)size);
+  if (*(unsigned long long *)size == 0) {
+    transfer_to_main_just_call->fileSize = 0;
+    transfer_to_main_just_call->fileCount = 0;
+    transfer_to_main_just_call->shmReady = 4;
+    return NULL;
+  }
+  // printf("%s, size:%lu\n", __func__, *(unsigned long long *)size);
+  THENEWDIRDISPATHfilesize = *(unsigned long long *)size;
+
+  // create transfer file shm and init
+  *(unsigned long long *)blockNum = ((*(unsigned long long *)size + 0x3ffff) >> 18);
+  int data_offset = (sizeof(TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile) + ((*(unsigned long long *)blockNum) * sizeof(int)));
+  // printf("%s: fileCount=%lu, size:%ld\n", __func__, transfer_to_main_just_call->fileCount, *(unsigned long long *)size);
+
+  transfer_to_main_just_call->fileCount++;
+  transfer_to_main_just_call->fileSize = *(unsigned long long *)size + data_offset;
+
+  void* transfer_keystone = the_new_dir_secure_dispatch_ulnoglong_create_shareMemory_transfer_file(*(unsigned long long *)size + data_offset, transfer_to_main_just_call->fileCount);
+  TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile *transfer_to_main_file = (TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile*)(transfer_keystone);
+  transfer_to_main_file->read_position  = 0;
+  transfer_to_main_file->dataptr_offset = data_offset;
+
+  int * transfer_to_main_file_blockNum_init = (int *)(((char*)transfer_keystone) + sizeof(TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile));
+
+  for (int i = 0; i < *(unsigned long long *)blockNum; ++i) {
+    transfer_to_main_file_blockNum_init[i] = 0;
+  }
+
+  // printf("%s, size:%lu\n", __func__, *(unsigned long long *)size);
+  *(unsigned long long *)size += data_offset;
+  // printf("%s, size:%lu\n", __func__, *(unsigned long long *)size);
+  transfer_to_main_just_call->shmReady = 1;
+
+  return transfer_keystone;
+}
+
+// wait transfer keystone already
+void the_new_secure_dispatch_wait_transfer_keystone_ready(void *shmaddr_just_call, int flexible) {
+  TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall *transfer_to_main_just_call = (TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall*)((char*)shmaddr_just_call + (sizeof(int) * flexible));
+
+  while(1) {
+    if (transfer_to_main_just_call->shmReady == 2) {
+      break;
+    }
+  }
+}
+
+// write
+int the_new_secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen, int flexible) {
+  TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile *transfer_to_main_file = (TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile*)(shmaddr);
+  
+  int i = transfer_to_main_file->read_position;
+
+  int *blockNum_flag = (int*)((char*)shmaddr + sizeof(TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile));
+
+  long long block_data_offset = transfer_to_main_file->dataptr_offset + (i << 18) + blockNum_flag[i];
+  char *block_data = (char*)shmaddr + block_data_offset;
+
+  if (block_data_offset + pLen > shmsize) {
+    std::cout << "error" << "block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+    return 0;
+  }
+
+  int tempSize = blockNum_flag[i] + pLen;
+
+  memcpy(block_data, p, pLen);
+  *readLen = pLen;
+
+  if (tempSize > 262144) {
+    blockNum_flag[i] = 262144;
+    blockNum_flag[i + 1] = tempSize - 262144;
+    transfer_to_main_file->read_position++;
+    // std::cout << "i1: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+    if (block_data_offset + pLen == shmsize) {
+      transfer_to_main_file->read_position++;
+      // std::cout << "i2: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+    }
+    return 1;
+  } else {
+    blockNum_flag[i] = tempSize;
+
+    if (blockNum_flag[i] == 262144) {
+      transfer_to_main_file->read_position++;
+      // std::cout << "i3: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+      return 1;
+    }
+  }
+
+  if (block_data_offset + pLen == shmsize) {
+    transfer_to_main_file->read_position++;
+    // std::cout << "i4: " << i << ", blockNum_flag[i]:" << blockNum_flag[i] << ", block_data_offset:" << block_data_offset << ", pLen:" << pLen << ", shmsize:" << shmsize << std::endl;
+  }
+
+  return 1;
+}
+
+// wati transfer keystone done
+void the_new_secure_dispatch_wait_transfer_keystoneDone(void *shmaddr, int flexible) {
+  TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall *transfer_to_main_just_call = (TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall*)((char*)shmaddr + (sizeof(int) * flexible));
+  while(1) {
+    if (transfer_to_main_just_call->shmReady == 3) {
+      break;
+    }
+  }
+}
+
+// detach transfer file shm
+void the_new_secure_dispatch_detach_shareMemory(void* shmaddr) {
+  shmdt(shmaddr);
+}
+
+// remove transfer file shm
+void the_new_secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shmsize, long long fileCount) {
+  int id = shmget(THE_NEW_DIR_SECURE_DISPATCH_SHMKEY_JUST_CALL + fileCount, shmsize, 0666);
+  if (id == -1) {
+    printf("%s: \n", __func__);
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  if (shmctl(id, IPC_RMID, NULL) == -1) {
+    printf("%s: ", __func__);
+    perror("shmctl");
+    exit(-1);
+  }
 }
 

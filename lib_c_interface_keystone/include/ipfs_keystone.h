@@ -301,6 +301,60 @@ void secure_dispatch_waitKeystoneDone(void *shmaddr, int flexible);
 
 int secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen, int flexible);
 
+
+// ==================================================================================
+//				The new dir Multi-process Keystone Decrypt secure dispatch
+// ==================================================================================
+
+#define THE_NEW_DIR_SECURE_DISPATCH_SHMKEY_JUST_CALL (250530)
+
+typedef struct {                        
+    long long fileSize;             
+    long long shmReady;
+    long long fileCount;
+} TheNewDirMultiProcessTEESecureDispatchSHMBufferJustCall;
+
+typedef struct {                        
+    long long read_position;             
+    long long dataptr_offset;
+} TheNewDirMultiProcessTEESecureDispatchSHMBufferTransferFile;
+
+typedef struct {
+    long long start_offset;     // 是第几个enclave，如果是0，则是main，其余则是slave
+    int numberKeystone;         // 一共有几个enclave
+} TheNewDirSecureMultiDispatch;
+
+// get just call shmsize
+unsigned long long TheNewDirMultiProcessTEESecureDispatchGetSHMSizeJustCall(int flexible);
+
+// create shm just call
+void* the_new_dir_secure_dispatch_ulnoglong_create_shareMemory_just_call(unsigned long long shmsize);
+
+// init shm just call
+void the_new_secure_dispacth_initSHM_just_call(void* shmaddr, int flexible);
+
+// wait keystone already just call
+void the_new_secure_dispatch_waitKeystoneReady_just_call(void *shmaddr, int flexible);
+
+// set filesize and create transfer file shm
+void* thenewdirsecuredispathSetLength(void *shmaddr, void* blockNum, void* size, int flexible);
+
+// wait transfer keystone already
+void the_new_secure_dispatch_wait_transfer_keystone_ready(void *shmaddr_just_call, int flexible);
+
+// write
+int the_new_secure_dispatch_write(void *shmaddr, long long shmsize, char* p, int pLen, int* readLen, int flexible);
+
+// detach transfer file shm
+void the_new_secure_dispatch_detach_shareMemory(void* shmaddr);
+
+// remove transfer file shm
+void the_new_secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shmsize, long long fileCount);
+
+// wati transfer keystone done
+void the_new_secure_dispatch_wait_transfer_keystoneDone(void *shmaddr, int flexible);
+
+
 #ifdef __cplusplus
 }
 #endif

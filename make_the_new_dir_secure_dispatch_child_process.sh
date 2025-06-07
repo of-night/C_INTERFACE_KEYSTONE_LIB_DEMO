@@ -15,8 +15,8 @@ KEYSTONEINCLUDE=${VF_KEYSTONE}/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_k
 
 MYKEYSTONEINCLUDE=${VF_KEYSTONE}/IPFS_KEYSTONE/C_INTERFACE_KEYSTONE_LIB_DEMO/lib_c_interface_keystone/include
 
-src_name=dispath_child_process.cpp
-dest_name=dispath_child_process
+src_name=the_new_dir_secure_dispatch_child_process.cpp
+dest_name=the_new_dir_secure_dispatch_child_process
 
 cpy_path=~/ipfs
 
