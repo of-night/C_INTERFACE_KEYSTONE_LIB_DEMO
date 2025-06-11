@@ -354,6 +354,28 @@ void the_new_secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shm
 // wati transfer keystone done
 void the_new_secure_dispatch_wait_transfer_keystoneDone(void *shmaddr, int flexible);
 
+// ==================================================================================
+//				The new dir Keystone Decrypt
+// ==================================================================================
+
+typedef struct {
+    int keystone_ready;
+    int file_ready;
+} KeystoneJustReady;
+
+// init kjb
+void init_keystone_just_ready(KeystoneJustReady *kjb);
+
+void the_new_dir_ipfs_keystone_de(int isAES, void *fileName, void* kjb, void* rb);
+
+void the_new_dir_keystone_wait_ready(void* kjb);
+
+void the_new_dir_wait_keystone_file_ready(void* kjb);
+
+void the_new_dir_wait_keystone_file_end(KeystoneJustReady *kjb);
+
+void thenewdirkeystonedecryptSetLength(void *kjb, unsigned long long fileSize);
+
 
 #ifdef __cplusplus
 }

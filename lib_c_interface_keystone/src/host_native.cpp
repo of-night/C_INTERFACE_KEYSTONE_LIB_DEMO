@@ -1794,3 +1794,265 @@ void the_new_secure_dispatch_ulnoglong_remove_shareMemory(unsigned long long shm
   }
 }
 
+
+// ==================================================================================
+//				The new dir Keystone Decrypt
+// ==================================================================================
+
+// init kjb
+void init_keystone_just_ready(KeystoneJustReady *kjb) {
+  kjb->keystone_ready = 0;
+  kjb->file_ready = 0;
+}
+
+RingBuffer* the_new_dir_tempRB = NULL;
+KeystoneJustReady* the_new_dir_tempKJB = NULL;
+void
+the_new_dir_get_filename_wrapper(void* buffer);
+void
+the_new_dir_ring_buffer_read_wrapper(void* buffer);
+char *THENEWDIRKEYSTONEFILENAME = NULL;
+void the_new_dir_ipfs_keystone_de(int isDeAES, void *fileName, void* kjb, void* rb) {
+  // 需要分配内存并复制字符串，确保释放内存以避免内存泄漏。
+  if (fileName != NULL) {
+
+    THENEWDIRKEYSTONEFILENAME = (char*)fileName;
+
+  }
+
+  if (kjb != NULL)
+  {
+    the_new_dir_tempKJB = (KeystoneJustReady*)kjb;
+  }
+
+  if (rb != NULL)
+  {
+    the_new_dir_tempRB = (RingBuffer*)rb;
+  }
+
+  // 获取当前时间点
+  auto start = std::chrono::steady_clock::now();
+
+  Keystone::Enclave enclave;
+  Keystone::Params params;
+
+  params.setFreeMemSize(256 * 1024 * 1024);
+  params.setUntrustedSize(1024 * 1024);
+
+  switch (isDeAES)
+  {
+  case AES:
+      enclave.init("thenewdirdeaes", "eyrie-rt", "loader.bin", params);
+      break;
+  case SM4:
+      enclave.init("thenewdirdesm4", "eyrie-rt", "loader.bin", params);
+      break;
+  case demo:
+      enclave.init("hello-native", "eyrie-rt", "loader.bin", params);
+      break;
+  default:
+      std::cout << "the new dir TEE do nothing" << std::endl;
+      return;
+  }
+
+  enclave.registerOcallDispatch(incoming_call_dispatch);
+
+  /* We must specifically register functions we want to export to the
+     enclave. */
+  register_call(OCALL_PRINT_STRING, print_string_wrapper);
+  register_call(OCALL_GET_FILENAME, the_new_dir_get_filename_wrapper);
+  register_call(OCALL_RING_BUFFER_READ, the_new_dir_ring_buffer_read_wrapper);
+
+  edge_call_init_internals(
+      (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
+
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
+
+  while(1) {
+    if (the_new_dir_tempKJB->keystone_ready == 0) {
+      the_new_dir_tempKJB->keystone_ready = 1;
+      break;
+    }
+  }
+  std::cout << "enclave run" << std::endl;
+
+  enclave.run();
+
+  // the_new_dir_tempRB->running = 0;
+
+  THENEWDIRKEYSTONEFILENAME = NULL;
+  the_new_dir_tempKJB = NULL;
+  the_new_dir_tempRB = NULL;
+
+  std::cout << "enclave done" << std::endl;
+}
+
+void the_new_dir_keystone_wait_ready(void* kjb) {
+  // printf("%s\n", __func__);
+  while(1) {
+    if (((KeystoneJustReady*)kjb)->keystone_ready == 1) {
+      break;
+    }
+  }
+  std::cout << "keystone already" << std::endl;
+}
+
+void thenewdirkeystonedecryptSetLength(void *kjb, unsigned long long fileSize) {
+  KeystoneJustReady *tempkjb = (KeystoneJustReady*)(kjb);
+  // printf("%s, size:%lu\n", __func__, fileSize);
+  if (fileSize == 0) {
+    tempkjb->file_ready = 4;
+    return;
+  }
+  
+  tempkjb->file_ready = 1;
+
+  return;
+}
+
+void the_new_dir_wait_keystone_file_ready(void* kjb) {
+  while(1) {
+    if (((KeystoneJustReady*)kjb)->file_ready == 2) {
+      break;
+    }
+  }
+}
+
+void the_new_dir_wait_keystone_file_end(KeystoneJustReady *kjb) {
+  while(1) {
+    if (kjb->file_ready == 3) {
+      break;
+    }
+  }
+}
+
+void
+the_new_dir_ring_buffer_read_wrapper(void* buffer) {
+
+  // printf("%s\n", __func__);
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (the_new_dir_tempRB == NULL)
+  {
+    std::cout << "the_new_dir_tempRB == NULL in the_new_dir_ring_buffer_read_wrapper. the_new_dir_tempRB: " << the_new_dir_tempRB << std::endl;
+    return;
+  }
+
+  size_t usedSpace = 0;
+  size_t size = 0;
+  while (ring_buffer_space_used(the_new_dir_tempRB) == 0 && the_new_dir_tempRB->running)
+  {
+    ;
+  }
+
+  if (!the_new_dir_tempRB->running && ring_buffer_space_used(the_new_dir_tempRB) == 0) {
+    // free(the_new_dir_tempRB);  // 不释放内存空间，只设置为NULL，方便cgo进行最后的判断
+    if (edge_call_setup_wrapped_ret(edge_call, NULL, 0)) {
+      edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+    } else {
+      edge_call->return_data.call_status = CALL_STATUS_OK;
+    }
+    the_new_dir_tempKJB->file_ready = 3;
+    return;
+    // size = 0;
+  } else {
+    usedSpace = ring_buffer_space_used(the_new_dir_tempRB);
+    size = usedSpace < 786432 ? usedSpace : 786432;
+    // std::cout << "size :" << size << std::endl;
+    // size = (size + 0xf) & ~0xf;
+    // std::cout << "size 1 :" << size << std::endl;
+  }
+
+  struct edge_data data_wrapper;
+  data_wrapper.size = size;
+  edge_call_get_offset_from_ptr(
+      _shared_start + sizeof(struct edge_call) + sizeof(struct edge_data),
+      sizeof(struct edge_data), &data_wrapper.offset);
+
+  int remaining = BUFFER_SIZE - the_new_dir_tempRB->read_pos;
+  // // printf("ring data p: %s\n", the_new_dir_tempRB->buffer + the_new_dir_tempRB->read_pos);
+  // printf("read wrapper start......\n");
+  if (size <= remaining) {
+    memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
+      (void*)(the_new_dir_tempRB->buffer + the_new_dir_tempRB->read_pos), size);
+      the_new_dir_tempRB->read_pos += size;
+  } else {
+    memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data)),
+      (void*)(the_new_dir_tempRB->buffer + the_new_dir_tempRB->read_pos), remaining);
+    memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call) + sizeof(struct edge_data) + remaining),
+      (void*)(the_new_dir_tempRB->buffer), size - remaining);
+      the_new_dir_tempRB->read_pos = size - remaining;
+  }
+
+  memcpy(
+      (void*)(_shared_start + sizeof(struct edge_call)), &data_wrapper,
+      sizeof(struct edge_data));
+
+  edge_call->return_data.call_ret_size = sizeof(struct edge_data);
+  if (edge_call_get_offset_from_ptr(
+      _shared_start + sizeof(struct edge_call), sizeof(struct edge_data),
+      &edge_call->return_data.call_ret_offset)) {
+        edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  } else {
+    edge_call->return_data.call_status = CALL_STATUS_OK;
+  }
+
+  return;
+}
+
+void
+the_new_dir_get_filename_wrapper(void* buffer) {
+
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (THENEWDIRKEYSTONEFILENAME == NULL) {
+    std::cout << "THENEWDIRKEYSTONEFILENAME == NULL in get_filename_wrapper. THENEWDIRKEYSTONEFILENAME: " << THENEWDIRKEYSTONEFILENAME << std::endl;
+    return;
+  }
+
+  int file_name_len = 0;
+  while(1) {
+    if (the_new_dir_tempKJB->file_ready == 1) {
+      file_name_len = strlen(THENEWDIRKEYSTONEFILENAME) + 1;
+      break;
+    }
+    if (the_new_dir_tempKJB->file_ready == 4) {
+      file_name_len = 0;
+      break;
+    }
+  }
+
+  // printf("%s, file_name_len:%d\n", __func__, file_name_len);
+
+  if (edge_call_setup_wrapped_ret(edge_call, (void*)THENEWDIRKEYSTONEFILENAME, file_name_len)) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  } else {
+    edge_call->return_data.call_status = CALL_STATUS_OK;
+  }
+
+  if (file_name_len != 0) {
+    init_ring_buffer(the_new_dir_tempRB);
+    the_new_dir_tempKJB->file_ready = 2;
+  }
+
+  // printf("%s, file_ready:%d\n", __func__, the_new_dir_tempKJB->file_ready);
+  
+  return;
+}
