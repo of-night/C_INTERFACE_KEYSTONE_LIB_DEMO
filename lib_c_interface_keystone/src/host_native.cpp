@@ -2056,3 +2056,184 @@ the_new_dir_get_filename_wrapper(void* buffer) {
   
   return;
 }
+
+
+// 创建共享内存
+void *the_new_dir_long_create_shareMemory(long long shmsize){
+  int id = shmget(THE_NEW_DIR_MULTI_PROCESS_SHMKEY_JUST_CALL, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    printf("%s: ", __func__);
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    printf("%s: ", __func__);
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// 启动keystone之前先初始化内存空间
+void theNewDirflexiblecrossInitSHMJustCall(void *shmaddr, int flexible) {
+  int *keystone_just_call_ready = (int*)shmaddr;
+  for(int i = 0; i < flexible; ++i) {
+    keystone_just_call_ready[i] = 0;
+  }
+
+  TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall* t = (TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall*)((char*)shmaddr + (sizeof(int) * flexible));
+  t->fileSize = 0;
+  t->fileCount = 0;
+
+  long long *shmReadyFlag = (long long*)((char*)shmaddr + (sizeof(int) * flexible) + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall));
+  for (int i = 0; i < flexible; ++i) {
+    shmReadyFlag[i] = 0;
+  }
+}
+
+// 等待keystone already
+void theNewDirflexiblecrosswaitKeystoneReady(void *shmaddr, int flexible) {
+  int *keystone_just_call_ready = (int*)shmaddr;
+
+  int flag = 0;
+  while(flag == flexible) {
+    if (keystone_just_call_ready[flag] == 1) {
+      flag++;
+    }
+  }
+  
+}
+
+
+// 创建共享内存
+void *the_new_dir_long_create_shareMemory_of_file(long long shmsize, long long fileCount) {
+  long long key = THE_NEW_DIR_MULTI_PROCESS_SHMKEY_JUST_CALL + fileCount;
+  // printf("%s:, key:%lld, shmsize:%lld\n", __func__, key, shmsize);
+  int id = shmget(key, shmsize, IPC_CREAT | 0666);
+  if (id == -1) {
+    printf("%s: ", __func__);
+    printf("shmget failed: %s (errno=%d)\n", strerror(errno), errno);
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  void* shmaddr = shmat(id, NULL, 0);
+  if (shmaddr == (void *)-1) {
+    printf("%s: ", __func__);
+    perror("Failed to attach shared memory");
+    exit(-1);
+  }
+
+  return shmaddr;
+}
+
+// 等待keystone already
+void theNewDirflexiblecrosswaitKeystoneTransferFilesReady(void *shmaddr_just_call, int flexible, void *shmaddr_transfer_file, long long blockNum, long long fileSize, void *fileName) {
+  TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall* just_call = (TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall*)((char*)shmaddr_just_call + (sizeof(int) * flexible)); 
+  long long *shmReadyFlag = (long long*)((char*)shmaddr_just_call + (sizeof(int) * flexible) + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall));
+
+  // done return
+  if (shmaddr_transfer_file == NULL || blockNum == 0 || fileSize == 0 || fileName == NULL) {
+    just_call->fileCount = 0;
+    just_call->fileSize = 0;
+    for (int i = 0; i < flexible; ++i) {
+      shmReadyFlag[i] = 4;
+    }
+    return;
+  }
+
+  TheNewDirMultiProcessCrossFlexibleSHMBufferReader* transfer = (TheNewDirMultiProcessCrossFlexibleSHMBufferReader*)(shmaddr_transfer_file); 
+  int *transfer_file_number_flag = (int *)(((char*)shmaddr_transfer_file) + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferReader));
+
+  transfer->read_position = 0;
+  transfer->offset = sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferReader) + (blockNum * sizeof(int));
+
+  for (int i = 0; i < blockNum; ++i) {
+    transfer_file_number_flag[i] = 0;
+  }
+
+  just_call->fileCount++;
+  just_call->fileSize = fileSize;
+  int fileNameLen = strlen((char*)fileName);
+
+  if (fileNameLen > 2048) {
+    printf("%s: error. fileNameLen:%d >= 2048\n", fileNameLen);
+    just_call->fileName[0] = '\0';
+  } else {
+    strncpy(just_call->fileName, (char*)fileName, fileNameLen);
+    just_call->fileName[fileNameLen] = '\0';
+  }
+
+  for (int i = 0; i < flexible; ++i) {
+    shmReadyFlag[i] = 1;
+  }
+
+  for (int i = 0; i < flexible; ++i) {
+    while(1) {
+      if (shmReadyFlag[i] == 2) {
+        break;
+      }
+    }
+  }
+}
+
+
+int TheNewDirMultiProcessCrossReadFlexible(void* shmaddr, int shmsize, void* data, int len, int* readLen) {
+  TheNewDirMultiProcessCrossFlexibleSHMBufferReader* tMPCFSB = (TheNewDirMultiProcessCrossFlexibleSHMBufferReader*)shmaddr;
+
+  unsigned int* src_offset_flag = (unsigned int*)((char*)shmaddr + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferReader));
+  char* src_offset_data = (char*)shmaddr + tMPCFSB->offset;
+
+  while (src_offset_flag[tMPCFSB->read_position] == 0 && (tMPCFSB->offset > ((tMPCFSB->read_position * 4) + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferReader))))
+  {
+    ;
+  }
+
+  if (tMPCFSB->offset <= ((tMPCFSB->read_position * 4) + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferReader))) {
+    return 0;
+  }
+
+  if (src_offset_flag[tMPCFSB->read_position] == 0) {
+    printf("Keystone write data error\n");
+    return 0;
+  }
+
+  *readLen = len > src_offset_flag[tMPCFSB->read_position] ? src_offset_flag[tMPCFSB->read_position] : len;
+
+  memcpy(data, src_offset_data + ((tMPCFSB->read_position) << 18), *readLen);
+  tMPCFSB->read_position += 1;
+
+  // printf("read_position:%d\n offset:%d\n", tMPCFSB->read_position, tMPCFSB->offset);
+
+  return 1;
+  
+}
+
+void theNewDirflexiblecrosswaitKeystoneTransferFilesEnd(void* shmaddr_just_call, int flexible) {
+  long long *shmReadyFlag = (long long*)((char*)shmaddr_just_call + (sizeof(int) * flexible) + sizeof(TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall));
+
+  for (int i = 0; i < flexible; ++i) {
+    while(1) {
+      if (shmReadyFlag[i] == 3) {
+        break;
+      }
+    }
+  }
+}
+
+// 删除共享内存段
+void the_new_dir_flexbile_long_removeShm(long long shmsize, long long fileCount) {
+  int id = shmget((THE_NEW_DIR_MULTI_PROCESS_SHMKEY_JUST_CALL+fileCount), shmsize, 0666);
+  if (id == -1) {
+    perror("Failed to get shared memory");
+    exit(-1);
+  }
+
+  if (shmctl(id, IPC_RMID, NULL) == -1) {
+    perror("shmctl");
+    exit(-1);
+  }
+}

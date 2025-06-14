@@ -377,6 +377,50 @@ void the_new_dir_wait_keystone_file_end(KeystoneJustReady *kjb);
 void thenewdirkeystonedecryptSetLength(void *kjb, unsigned long long fileSize);
 
 
+// ==================================================================================
+//				The New Dir Multi-process Keystone Decrypt secure dispatch
+// ==================================================================================
+
+typedef struct {                        
+    long long fileSize;             
+    long long fileCount;
+    char fileName[2048];
+} TheNewDirMultiProcessCrossFlexibleSHMBufferJustCall;
+
+typedef struct {                        
+    long long read_position;             
+    long long offset;
+} TheNewDirMultiProcessCrossFlexibleSHMBufferReader;
+
+typedef struct {
+    long long start_offset;
+    int numberKeystone;
+} TheNewDirMultiCrossFlexibleFile;
+
+#define THE_NEW_DIR_MULTI_PROCESS_SHMKEY_JUST_CALL (250611)
+
+// 创建共享内存
+void *the_new_dir_long_create_shareMemory(long long shmsize);
+
+// 启动keystone之前先初始化内存空间
+void theNewDirflexiblecrossInitSHMJustCall(void *shmaddr, int flexible);
+
+// 等待keystone already
+void theNewDirflexiblecrosswaitKeystoneReady(void *shmaddr, int flexible);
+
+// 创建共享内存
+void *the_new_dir_long_create_shareMemory_of_file(long long shmsize, long long fileCount);
+
+// 等待keystone transfer file already
+void theNewDirflexiblecrosswaitKeystoneTransferFilesReady(void *shmaddr_just_call, int flexible, void *shmaddr_transfer_file,long long blockNum, long long fileSize, void *fileName);
+
+int TheNewDirMultiProcessCrossReadFlexible(void* shmaddr, int shmsize, void* data, int len, int* readLen);
+
+void theNewDirflexiblecrosswaitKeystoneTransferFilesEnd(void* shmaddr_just_call, int flexible);
+
+// 删除共享内存段
+void the_new_dir_flexbile_long_removeShm(long long shmsize, long long fileCount);
+
 #ifdef __cplusplus
 }
 #endif
