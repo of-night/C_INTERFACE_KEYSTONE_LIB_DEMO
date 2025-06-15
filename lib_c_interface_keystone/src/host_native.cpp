@@ -2237,3 +2237,225 @@ void the_new_dir_flexbile_long_removeShm(long long shmsize, long long fileCount)
     exit(-1);
   }
 }
+
+// ==================================================================================
+//				The New Dir Keystone Encrypt
+// ==================================================================================
+
+RingBuffer* the_new_dir_tempRB_add = NULL;
+KeystoneJustReadyAdd* the_new_dir_tempKJB_add = NULL;
+void
+the_new_dir_get_filename_add_wrapper(void* buffer);
+void
+the_new_dir_ring_buffer_write_wrapper(void* buffer);
+char *THENEWDIRKEYSTONEFILENAMEADD = NULL;
+void the_new_dir_ipfs_keystone(int isAES, void* kjb, void* rb) {
+  // 需要分配内存并复制字符串，确保释放内存以避免内存泄漏。
+
+  if (kjb != NULL)
+  {
+    the_new_dir_tempKJB_add = (KeystoneJustReadyAdd*)kjb;
+  }
+
+  if (rb != NULL)
+  {
+    the_new_dir_tempRB_add = (RingBuffer*)rb;
+  }
+
+  // 获取当前时间点
+  auto start = std::chrono::steady_clock::now();
+
+  Keystone::Enclave enclave;
+  Keystone::Params params;
+
+  params.setFreeMemSize(256 * 1024 * 1024);
+  params.setUntrustedSize(1024 * 1024);
+
+  switch (isAES)
+  {
+  case AES:
+      enclave.init("thenewdiraes", "eyrie-rt", "loader.bin", params);
+      break;
+  case SM4:
+      enclave.init("thenewdirsm4", "eyrie-rt", "loader.bin", params);
+      break;
+  case demo:
+      enclave.init("hello-native", "eyrie-rt", "loader.bin", params);
+      break;
+  default:
+      std::cout << "the new dir TEE do nothing" << std::endl;
+      return;
+  }
+
+  enclave.registerOcallDispatch(incoming_call_dispatch);
+
+  /* We must specifically register functions we want to export to the
+     enclave. */
+  register_call(OCALL_PRINT_STRING, print_string_wrapper);
+  register_call(OCALL_GET_FILENAME, the_new_dir_get_filename_add_wrapper);
+  register_call(OCALL_RING_BUFFER_WRITE, the_new_dir_ring_buffer_write_wrapper);
+
+  edge_call_init_internals(
+      (uintptr_t)enclave.getSharedBuffer(), enclave.getSharedBufferSize());
+
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double, std::micro> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " microseconds" << std::endl;
+
+  while(1) {
+    if (the_new_dir_tempKJB_add->keystone_ready == 0) {
+      the_new_dir_tempKJB_add->keystone_ready = 1;
+      break;
+    }
+  }
+  std::cout << "enclave run" << std::endl;
+
+  enclave.run();
+
+  // the_new_dir_tempRB_add->running = 0;
+
+  THENEWDIRKEYSTONEFILENAMEADD = NULL;
+  the_new_dir_tempKJB_add = NULL;
+  the_new_dir_tempRB_add = NULL;
+
+  std::cout << "enclave done" << std::endl;
+}
+
+void
+the_new_dir_get_filename_add_wrapper(void* buffer) {
+
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (the_new_dir_tempKJB_add == NULL) {
+    std::cout << "the_new_dir_tempKJB_add != NULL in the_new_dir_get_filename_add_wrapper. the_new_dir_tempKJB_add: " << the_new_dir_tempKJB_add << std::endl;
+    return;
+  }
+
+  if (THENEWDIRKEYSTONEFILENAMEADD != NULL) {
+    std::cout << "THENEWDIRKEYSTONEFILENAMEADD != NULL in the_new_dir_get_filename_add_wrapper. THENEWDIRKEYSTONEFILENAMEADD: " << THENEWDIRKEYSTONEFILENAMEADD << std::endl;
+    return;
+  }
+
+  THENEWDIRKEYSTONEFILENAMEADD = the_new_dir_tempKJB_add->fileName;
+
+  int file_name_len = 0;
+  while(1) {
+    if (the_new_dir_tempKJB_add->file_ready == 1) {
+      file_name_len = strlen(THENEWDIRKEYSTONEFILENAMEADD) + 1;
+      break;
+    }
+    if (the_new_dir_tempKJB_add->file_ready == 4) {
+      file_name_len = 0;
+      break;
+    }
+  }
+
+  // printf("%s, file_name_len:%d\n", __func__, file_name_len);
+
+  if (edge_call_setup_wrapped_ret(edge_call, (void*)THENEWDIRKEYSTONEFILENAMEADD, file_name_len)) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_PTR;
+  } else {
+    edge_call->return_data.call_status = CALL_STATUS_OK;
+  }
+
+  if (file_name_len != 0) {
+    init_ring_buffer(the_new_dir_tempRB_add);
+    the_new_dir_tempKJB_add->file_ready = 2;
+  }
+
+  // printf("%s, file_ready:%d\n", __func__, the_new_dir_tempKJB_add->file_ready);
+  
+  return;
+}
+
+void
+the_new_dir_ring_buffer_write_wrapper(void* buffer) {
+
+  struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  if (the_new_dir_tempRB_add == NULL)
+  {
+    std::cout << "the_new_dir_tempRB_add == NULL in the_new_dir_ring_buffer_write_wrapper. the_new_dir_tempRB_add: " << the_new_dir_tempRB_add << std::endl;
+    return;
+  }
+
+  if (arg_len > 0) {
+    ring_buffer_write(the_new_dir_tempRB_add, (char *)call_args, arg_len);
+  } else if (arg_len == 0) {
+    the_new_dir_tempRB_add->running = 0;
+    the_new_dir_tempKJB_add->file_ready = 3;
+    THENEWDIRKEYSTONEFILENAMEADD = NULL;
+  }
+
+  edge_call->return_data.call_status = CALL_STATUS_OK;
+
+  return;
+}
+
+// init kjb
+void init_keystone_just_ready_add(KeystoneJustReadyAdd *kjb) {
+  kjb->keystone_ready = 0;
+  kjb->file_ready = 0;
+  kjb->fileName[0] = '\0';
+}
+
+void the_new_dir_keystone_wait_ready_add(void* kjb) {
+  // printf("%s\n", __func__);
+  while(1) {
+    if (((KeystoneJustReadyAdd*)kjb)->keystone_ready == 1) {
+      break;
+    }
+  }
+  std::cout << "keystone already" << std::endl;
+}
+
+// 等待keystone already
+void theNewDirKeystoneTransferFilesReady(void *kjb, long long fileSize, void *fileName) {
+  KeystoneJustReadyAdd* just_call = (KeystoneJustReadyAdd*)(kjb); 
+
+  // done return
+  if (fileSize == 0 || fileName == NULL) {
+    just_call->file_ready = 4;
+    just_call->fileName[0] = '\0';
+    return;
+  }
+
+  int fileNameLen = strlen((char*)fileName);
+
+  if (fileNameLen >= 2048) {
+    printf("%s: error. fileNameLen:%d >= 2048\n", fileNameLen);
+    just_call->fileName[0] = '\0';
+  } else {
+    strncpy(just_call->fileName, (char*)fileName, fileNameLen);
+    just_call->fileName[fileNameLen] = '\0';
+  }
+
+  just_call->file_ready = 1;
+  while(1) {
+    if (just_call->file_ready == 2) {
+      break;
+    }
+  }
+}
+
+void the_new_dir_wait_keystone_file_end_add(KeystoneJustReadyAdd *kjb, RingBuffer* rb) {
+  while(1) {
+    if (kjb->file_ready == 3) {
+      rb->read_pos = 0;
+      rb->write_pos = 0;
+      break;
+    }
+  }
+}

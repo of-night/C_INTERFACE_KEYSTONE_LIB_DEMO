@@ -421,6 +421,30 @@ void theNewDirflexiblecrosswaitKeystoneTransferFilesEnd(void* shmaddr_just_call,
 // 删除共享内存段
 void the_new_dir_flexbile_long_removeShm(long long shmsize, long long fileCount);
 
+
+// ==================================================================================
+//				The New Dir Keystone Encrypt
+// ==================================================================================
+
+
+typedef struct {
+    int keystone_ready;
+    int file_ready;
+    char fileName[2048];
+} KeystoneJustReadyAdd;
+
+void the_new_dir_ipfs_keystone(int isAES, void* kjb, void* rb);
+
+// init kjb
+void init_keystone_just_ready_add(KeystoneJustReadyAdd *kjb);
+
+void the_new_dir_keystone_wait_ready_add(void* kjb);
+
+// 等待keystone already
+void theNewDirKeystoneTransferFilesReady(void *kjb, long long fileSize, void *fileName);
+
+void the_new_dir_wait_keystone_file_end_add(KeystoneJustReadyAdd *kjb, RingBuffer* rb);
+
 #ifdef __cplusplus
 }
 #endif
